@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Injeção de CSS Customizado (UI/UX Premium + Hover Effects)
+# 2. Injeção de CSS Customizado (Cores e Temas Fixos)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
@@ -23,49 +23,65 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
-    /* Cards com efeito de elevação e transição no mouse */
+    /* Cards com fundo escuro fixo para visibilidade */
     .ux-card {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background-color: #1A1D24 !important;
+        border: 1px solid #2D3748 !important;
         border-radius: 16px;
-        padding: 22px;
+        padding: 20px;
         margin-bottom: 15px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        backdrop-filter: blur(12px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        transition: all 0.3s ease;
     }
     
     .ux-card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 12px 28px rgba(0, 230, 118, 0.15);
-        border-color: rgba(0, 230, 118, 0.4);
+        transform: translateY(-3px);
+        border-color: #00E676 !important;
+        box-shadow: 0 8px 20px rgba(0, 230, 118, 0.2);
     }
 
-    /* Métricas estilizadas */
     .metric-title {
-        font-size: 0.85rem;
-        color: #A0AEC0;
-        font-weight: 600;
+        font-size: 0.82rem;
+        color: #A0AEC0 !important;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
     
     .metric-value {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #FFFFFF;
-        margin-top: 5px;
+        font-size: 1.7rem;
+        font-weight: 800;
+        color: #00E676 !important;
+        margin-top: 6px;
+    }
+
+    .metric-value-blue {
+        font-size: 1.7rem;
+        font-weight: 800;
+        color: #00B0FF !important;
+        margin-top: 6px;
     }
     
     .metric-sub {
         font-size: 0.8rem;
-        color: #00E676;
-        margin-top: 2px;
+        color: #CBD5E0 !important;
+        margin-top: 4px;
     }
 
-    /* Badges / Veredito */
+    /* Header da Empresa */
+    .company-header {
+        background: linear-gradient(135deg, #1A1D24, #2D3748);
+        border: 1px solid #00E676;
+        border-radius: 16px;
+        padding: 22px;
+        margin-bottom: 25px;
+        color: #FFFFFF !important;
+    }
+
+    /* Badges */
     .badge-approved {
-        background: linear-gradient(135deg, #00E676, #00B0FF);
-        color: #000;
+        background: #00E676;
+        color: #000000 !important;
         padding: 6px 16px;
         border-radius: 20px;
         font-weight: 700;
@@ -73,57 +89,173 @@ st.markdown("""
     }
 
     .badge-rejected {
-        background: linear-gradient(135deg, #FF1744, #FF5252);
-        color: #FFF;
+        background: #FF5252;
+        color: #FFFFFF !important;
         padding: 6px 16px;
         border-radius: 20px;
         font-weight: 700;
         display: inline-block;
     }
-
-    /* Ajustes na sidebar */
-    .css-1d37Wk {
-        background-color: #0E1117;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Função Cacheada para Alta Performance
+# 3. Lista Pré-carregada para Autocompletar na B3
+ACOES_B3 = [
+    "PETR4 - Petrobras PN",
+    "VALE3 - Vale ON",
+    "ITUB4 - Itaú Unibanco PN",
+    "BBAS3 - Banco do Brasil ON",
+    "BBDC4 - Bradesco PN",
+    "WEGE3 - WEG ON",
+    "ABEV3 - Ambev ON",
+    "RENT3 - Localiza ON",
+    "ELET3 - Eletrobras ON",
+    "SUZB3 - Suzano ON",
+    "JBSS3 - JBS ON",
+    "LREN3 - Lojas Renner ON",
+    "PRIO3 - Prio ON",
+    "VBBR3 - Vibra Energia ON",
+    "EQTL3 - Equatorial ON",
+    "RADL3 - Raia Drogasil ON",
+    "B3SA3 - B3 ON",
+    "GGBR4 - Gerdau PN",
+    "CSAN3 - Cosan ON",
+    "CPLE6 - Copel PNB",
+    "TAEE11 - Taesa Unt",
+    "KLBN11 - Klabin Unt",
+    "CMIG4 - Cemig PN",
+    "EGIE3 - Engie Brasil ON",
+    "MGLU3 - Magazine Luiza ON",
+    "🔍 Outro Ticker (Digitar manualmente)"
+]
+
+# 4. Função de Busca e Tratamento dos Indicadores
 @st.cache_data(ttl=3600)
 def buscar_dados_ativo(ticker_str):
     symbol = f"{ticker_str}.SA" if not ticker_str.endswith(".SA") else ticker_str
     stock = yf.Ticker(symbol)
     info = stock.info
     
+    nome = info.get('shortName') or info.get('longName') or ticker_str
+    setor = info.get('sector') or "Setor Não Especificado"
+    industria = info.get('industry') or "Indústria Não Especificada"
+    
     preco = round(info.get('currentPrice') or info.get('regularMarketPrice') or 0.0, 2)
     lpa = round(info.get('trailingEps') or 0.0, 2)
     vpa = round(info.get('bookValue') or 0.0, 2)
-    dpa = round(info.get('trailingAnnualDividendRate') or 0.0, 2)
+    
+    # Tratamento de DPA (Dividendos Por Ação)
+    dpa_raw = info.get('trailingAnnualDividendRate') or info.get('dividendRate') or 0.0
+    if dpa_raw == 0 and info.get('dividendYield'):
+        dy_check = info.get('dividendYield')
+        dpa_raw = (dy_check / 100.0 * preco) if dy_check > 1.0 else (dy_check * preco)
+    dpa = round(dpa_raw, 2)
+
+    # Cálculo Seguro do Dividend Yield em % (DPA / Preço)
+    if preco > 0 and dpa > 0:
+        dy = round((dpa / preco) * 100, 2)
+    else:
+        dy_raw = info.get('dividendYield') or 0.0
+        dy = round(dy_raw if dy_raw > 1.0 else dy_raw * 100, 2)
+
     pl = round(info.get('trailingPE') or 0.0, 2)
     pvp = round(info.get('priceToBook') or 0.0, 2)
     roe = round((info.get('returnOnEquity') or 0.0) * 100, 2)
     margem = round((info.get('profitMargins') or 0.0) * 100, 2)
     divida_ebitda = round(info.get('debtToEbitda') or 0.0, 2)
     liquidez = round(info.get('currentRatio') or 0.0, 2)
+    market_cap = info.get('marketCap') or 0
+
+    # Valuation Graham
+    if lpa > 0 and vpa > 0:
+        p_graham_num = np.sqrt(22.5 * lpa * vpa)
+        p_graham_str = f"R$ {p_graham_num:.2f}"
+        margem_graham = f"{((p_graham_num - preco) / preco) * 100:+.1f}%"
+    else:
+        p_graham_str = "N/A (LPA/VPA ≤ 0)"
+        margem_graham = "-"
+
+    # Valuation Bazin (Teto 6%)
+    if dpa > 0:
+        p_bazin_num = dpa / 0.06
+        p_bazin_str = f"R$ {p_bazin_num:.2f}"
+        margem_bazin = f"{((p_bazin_num - preco) / preco) * 100:+.1f}%"
+    else:
+        p_bazin_str = "N/A (Sem Prov. Recentes)"
+        margem_bazin = "-"
+
+    if market_cap >= 1e9:
+        cap_fmt = f"R$ {market_cap/1e9:.2f} Bilhões"
+    elif market_cap >= 1e6:
+        cap_fmt = f"R$ {market_cap/1e6:.2f} Milhões"
+    else:
+        cap_fmt = f"R$ {market_cap:,.2f}"
     
     return {
         "Ticker": ticker_str,
-        "Preço": preco, "LPA": lpa, "VPA": vpa, "DPA": dpa,
-        "P/L": pl, "P/VP": pvp, "ROE (%)": roe, "Margem Líq. (%)": margem,
-        "Dívida Líq./EBITDA": divida_ebitda, "Liquidez Corrente": liquidez
+        "Nome": nome,
+        "Setor": setor,
+        "Indústria": industria,
+        "Preço": preco, 
+        "LPA": lpa, 
+        "VPA": vpa, 
+        "DPA": dpa,
+        "P/L": pl, 
+        "P/VP": pvp, 
+        "ROE (%)": roe, 
+        "Margem Líq. (%)": margem,
+        "Dívida Líq./EBITDA": divida_ebitda, 
+        "Liquidez Corrente": liquidez,
+        "Dividend Yield (%)": dy,
+        "Valor de Mercado": cap_fmt,
+        "Preço Justo Graham": p_graham_str,
+        "Margem Graham": margem_graham,
+        "Preço Teto Bazin": p_bazin_str,
+        "Margem Bazin": margem_bazin
     }
 
-# 4. Cabeçalho Principal
+# 5. Cabeçalho Principal
 st.markdown("<h1>⚡ Terminal B3 <span style='color:#00E676;'>Analytics Pro</span></h1>", unsafe_allow_html=True)
-st.caption("Painel interativo de análise fundamentalista, valuation e projeção patrimonial em tempo real.")
 
-# 5. Sidebar de Parâmetros
+# 6. Sidebar (Com Parâmetros Mínimos Recomendados pela Suno / Value Investing)
 st.sidebar.markdown("### ⚙️ Parâmetros do Filtro")
-pl_max_ideal = st.sidebar.number_input("P/L Máximo Recomendado", value=15.0)
-pvp_max_ideal = st.sidebar.number_input("P/VP Máximo Recomendado", value=1.5)
-roe_min_ideal = st.sidebar.number_input("ROE Mínimo (%)", value=10.0)
 
-# 6. Abas Navegáveis com Ícones
+pl_max_ideal = st.sidebar.number_input(
+    "P/L Máximo Recomendado", value=15.0, 
+    help="Valuation: Preço/Lucro ideal até 15x para evitar pagar caro pela empresa."
+)
+
+pvp_max_ideal = st.sidebar.number_input(
+    "P/VP Máximo Recomendado", value=1.5, 
+    help="Preço/Valor Patrimonial: Mínimo aceitável até 1.5x (Graham)."
+)
+
+roe_min_ideal = st.sidebar.number_input(
+    "ROE Mínimo (%)", value=10.0, 
+    help="Rentabilidade: Mede a eficiência do capital próprio. Suno recomenda mínimo de 10% a 15%."
+)
+
+dy_min_ideal = st.sidebar.number_input(
+    "Dividend Yield Mínimo (%)", value=6.0, 
+    help="Método Bazin/Suno: Proventos anuais mínimos de 6% sobre a cotação."
+)
+
+divida_max_ideal = st.sidebar.number_input(
+    "Dívida Líq. / EBITDA Máxima", value=2.5, 
+    help="Risco Financeiro: Máximo de 2.5x para garantir que a empresa aguente juros altos."
+)
+
+margem_min_ideal = st.sidebar.number_input(
+    "Margem Líquida Mínima (%)", value=10.0, 
+    help="Vantagem Competitiva: Garante rentabilidade contra concorrência e custos."
+)
+
+liquidez_min_ideal = st.sidebar.number_input(
+    "Liquidez Corrente Mínima", value=1.0, 
+    help="Solvência: Deve ser maior que 1.0 para ter mais caixa que dívidas de curto prazo."
+)
+
+# 7. Abas
 tab1, tab2, tab3, tab4 = st.tabs([
     "🎯 Valuation & Resumo", 
     "⚔️ Comparador Side-by-Side", 
@@ -133,26 +265,49 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 # === ABA 1: VALUATION & RESUMO ===
 with tab1:
-    c1, c2 = st.columns([1, 3])
-    with c1:
-        ticker_ind = st.text_input("🔍 Buscar Ativo:", value="PETR4").upper().strip()
-    
+    col_sel1, col_sel2 = st.columns([2, 1])
+    with col_sel1:
+        opcao_busca = st.selectbox(
+            "🔍 Buscar Ação na B3 (Digite o nome ou ticker):",
+            ACOES_B3,
+            index=0
+        )
+        
+        if opcao_busca == "🔍 Outro Ticker (Digitar manualmente)":
+            ticker_ind = st.text_input("Digite o Ticker exato (ex: BBSE3):", value="BBSE3").upper().strip()
+        else:
+            ticker_ind = opcao_busca.split(" - ")[0].strip()
+
     if ticker_ind:
         try:
             dados = buscar_dados_ativo(ticker_ind)
-            p_graham = round(np.sqrt(22.5 * dados['LPA'] * dados['VPA']), 2) if dados['LPA'] > 0 and dados['VPA'] > 0 else "N/A"
-            p_bazin = round(dados['DPA'] / 0.06, 2) if dados['DPA'] > 0 else "N/A"
             
-            # Cards Interativos com Hover Effect
-            st.markdown("### 📊 Modelos de Valuation")
+            # Card Automático da Empresa
+            st.markdown(f"""
+            <div class="company-header">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+                    <div>
+                        <h2 style="margin:0; color:#FFFFFF;">{dados['Nome']} <span style="color:#00E676;">({dados['Ticker']})</span></h2>
+                        <p style="margin:5px 0 0 0; color:#A0AEC0;">🏭 {dados['Setor']} • {dados['Indústria']} | 💼 Val. Mercado: {dados['Valor de Mercado']}</p>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="font-size:0.85rem; color:#A0AEC0;">Cotação Atual</span>
+                        <div style="font-size:2rem; font-weight:800; color:#00B0FF;">R$ {dados['Preço']}</div>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Cards de Valuation
+            st.markdown("### 📊 Modelos de Valuation Automáticos")
             col_a, col_b, col_c = st.columns(3)
             
             with col_a:
                 st.markdown(f"""
                 <div class="ux-card">
                     <div class="metric-title">📐 Preço Justo Graham</div>
-                    <div class="metric-value">R$ {p_graham}</div>
-                    <div class="metric-sub">Baseado em Lucro e Patrimônio</div>
+                    <div class="metric-value">{dados['Preço Justo Graham']}</div>
+                    <div class="metric-sub">Margem/Desconto: <b>{dados['Margem Graham']}</b></div>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -160,35 +315,53 @@ with tab1:
                 st.markdown(f"""
                 <div class="ux-card">
                     <div class="metric-title">🛡️ Preço Teto Bazin (6%)</div>
-                    <div class="metric-value">R$ {p_bazin}</div>
-                    <div class="metric-sub">Baseado nos Proventos Pagos</div>
+                    <div class="metric-value-blue">{dados['Preço Teto Bazin']}</div>
+                    <div class="metric-sub">Margem/Desconto: <b>{dados['Margem Bazin']}</b></div>
                 </div>
                 """, unsafe_allow_html=True)
 
             with col_c:
+                # Verificação completa contra TODOS os filtros do investidor
+                passou_pl = dados['P/L'] <= pl_max_ideal
+                passou_pvp = dados['P/VP'] <= pvp_max_ideal
+                passou_roe = dados['ROE (%)'] >= roe_min_ideal
+                passou_dy = dados['Dividend Yield (%)'] >= dy_min_ideal
+                passou_divida = dados['Dívida Líq./EBITDA'] <= divida_max_ideal
+                passou_margem = dados['Margem Líq. (%)'] >= margem_min_ideal
+                passou_liquidez = dados['Liquidez Corrente'] >= liquidez_min_ideal
+
+                aprovado_total = all([passou_pl, passou_pvp, passou_roe, passou_dy, passou_divida, passou_margem, passou_liquidez])
+                status = "APROVADO" if aprovado_total else "ATENÇÃO"
+                badge_class = "badge-approved" if aprovado_total else "badge-rejected"
+
                 st.markdown(f"""
                 <div class="ux-card">
-                    <div class="metric-title">🏷️ Cotação Atual</div>
-                    <div class="metric-value" style="color: #00B0FF;">R$ {dados['Preço']}</div>
-                    <div class="metric-sub">Valor de Mercado B3</div>
+                    <div class="metric-title">🎯 Veredito dos Filtros</div>
+                    <div style="margin-top:10px;"><span class="{badge_class}">{status}</span></div>
+                    <div class="metric-sub">Baseado nos Limites da Sidebar</div>
                 </div>
                 """, unsafe_allow_html=True)
+
+            # Tabela Estruturada
+            st.markdown("### 📋 Indicadores Fundamentalistas Detalhados")
             
-            # Diagnostic Card
-            status = "APROVADO" if (dados['P/L'] <= pl_max_ideal and dados['ROE (%)'] >= roe_min_ideal) else "ATENÇÃO / REPROVADO"
-            badge_class = "badge-approved" if status == "APROVADO" else "badge-rejected"
+            df_exibicao = pd.DataFrame([
+                {"Indicador": "💵 Preço Atual", "Valor": f"R$ {dados['Preço']}", "Descrição": "Cotação atualizada na B3"},
+                {"Indicador": "📐 Preço Justo (Graham)", "Valor": dados['Preço Justo Graham'], "Descrição": f"Fórmula: √(22.5 × LPA × VPA) | Margem: {dados['Margem Graham']}"},
+                {"Indicador": "🛡️ Preço Teto (Bazin 6%)", "Valor": dados['Preço Teto Bazin'], "Descrição": f"Fórmula: DPA / 0.06 | Margem: {dados['Margem Bazin']}"},
+                {"Indicador": "📊 P/L (Preço / Lucro)", "Valor": f"{dados['P/L']}x", "Descrição": f"Anos para reaver capital {'✅' if passou_pl else '⚠️'}"},
+                {"Indicador": "📖 P/VP (Preço / Valor Patrimonial)", "Valor": f"{dados['P/VP']}x", "Descrição": f"Preço relativo ao patrimônio {'✅' if passou_pvp else '⚠️'}"},
+                {"Indicador": "💰 Dividend Yield (DY)", "Valor": f"{dados['Dividend Yield (%)']}%", "Descrição": f"Rendimento anual em dividendos {'✅' if passou_dy else '⚠️'}"},
+                {"Indicador": "📈 ROE (Retorno sobre Patrimônio)", "Valor": f"{dados['ROE (%)']}%", "Descrição": f"Eficiência na geração de lucro {'✅' if passou_roe else '⚠️'}"},
+                {"Indicador": "💧 Margem Líquida", "Valor": f"{dados['Margem Líq. (%)']}%", "Descrição": f"Lucro líquido sobre receita {'✅' if passou_margem else '⚠️'}"},
+                {"Indicador": "🧮 LPA (Lucro Por Ação)", "Valor": f"R$ {dados['LPA']}", "Descrição": "Lucro líquido por cada ação"},
+                {"Indicador": "🏛️ VPA (Valor Patrimonial Por Ação)", "Valor": f"R$ {dados['VPA']}", "Descrição": "Patrimônio líquido por ação"},
+                {"Indicador": "🎁 DPA (Dividendos Por Ação)", "Valor": f"R$ {dados['DPA']}", "Descrição": "Proventos pagos por ação nos últimos 12 meses"},
+                {"Indicador": "⚖️ Dívida Líquida / EBITDA", "Valor": f"{dados['Dívida Líq./EBITDA']}x", "Descrição": f"Nível de endividamento da empresa {'✅' if passou_divida else '⚠️'}"},
+                {"Indicador": "🌊 Liquidez Corrente", "Valor": f"{dados['Liquidez Corrente']}x", "Descrição": f"Capacidade de honrar dívidas no curto prazo {'✅' if passou_liquidez else '⚠️'}"}
+            ])
             
-            st.markdown(f"""
-            <div class="ux-card">
-                <span class="metric-title">Veredito do Filtro:</span>
-                <span class="{badge_class}">{status}</span>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Tabela de Indicadores Formatada
-            df_ind = pd.DataFrame([dados]).T.reset_index()
-            df_ind.columns = ["Indicador Fundamentalista", "Valor"]
-            st.dataframe(df_ind, use_container_width=True, hide_index=True)
+            st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
 
         except Exception as e:
             st.error(f"Erro ao carregar dados do ativo: {e}")
@@ -204,10 +377,8 @@ with tab2:
         try:
             d1, d2 = buscar_dados_ativo(t1), buscar_dados_ativo(t2)
             df_comp = pd.DataFrame([d1, d2]).set_index("Ticker").T
-            
             st.dataframe(df_comp, use_container_width=True)
             
-            # Gráfico de Radar Interativo
             categories = ['P/L', 'P/VP', 'ROE (%)', 'Margem Líq. (%)']
             fig_radar = go.Figure()
 
@@ -257,7 +428,6 @@ with tab3:
             
     df_sim = pd.DataFrame(historico)
     
-    # Gráfico de Área Interativo
     fig = px.area(
         df_sim, x="Ano", y=["Com Reinvestimento", "Investido"],
         title="Efeito Bola de Neve no Patrimônio (Juros Compostos)",
@@ -269,10 +439,10 @@ with tab3:
 # === ABA 4: DOWNLOADS ===
 with tab4:
     st.markdown("### 📥 Baixar Relatório Customizado")
-    if 'df_ind' in locals():
+    if 'df_exibicao' in locals():
         col_d1, col_d2 = st.columns(2)
         
-        csv_data = df_ind.to_csv(index=False).encode('utf-8')
+        csv_data = df_exibicao.to_csv(index=False).encode('utf-8')
         col_d1.download_button(
             "📄 Download em CSV", data=csv_data,
             file_name=f"Analise_{ticker_ind}.csv", mime="text/csv", use_container_width=True
@@ -280,7 +450,7 @@ with tab4:
         
         excel_buffer = io.BytesIO()
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            df_ind.to_excel(writer, sheet_name="Resumo", index=False)
+            df_exibicao.to_excel(writer, sheet_name="Resumo", index=False)
         excel_buffer.seek(0)
         
         col_d2.download_button(
