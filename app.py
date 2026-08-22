@@ -215,7 +215,7 @@ def buscar_dados_ativo(ticker_str):
     }
 
 # 5. Cabeçalho Principal
-st.markdown("<h1>⚡ Terminal B3 <span style='color:#00E676;'>Analytics Pro</span></h1>", unsafe_allow_html=True)
+st.markdown("<h1>⚡ Sankt20 B3 <span style='color:#00E676;'>Analytics Pro</span></h1>", unsafe_allow_html=True)
 
 # 6. Sidebar (Com Parâmetros Mínimos Recomendados pela Suno / Value Investing)
 st.sidebar.markdown("### ⚙️ Parâmetros do Filtro")
