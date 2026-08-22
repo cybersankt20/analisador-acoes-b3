@@ -3,23 +3,93 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import io
 
-st.set_page_config(page_title="Plataforma Completa de Análise Financeira B3", layout="wide")
+# 1. Configuração da Página
+st.set_page_config(
+    page_title="Terminal B3 Pro | Analytics",
+    page_icon="⚡",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-st.title("📊 Plataforma de Análise Fundamentalista, Valuation & Comparador B3")
+# 2. Injeção de CSS Customizado (UI/UX Premium + Hover Effects)
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
 
-# --- BARRA LATERAL: CONFIGURAÇÕES E PARÂMETROS ---
-st.sidebar.header("⚙️ Parâmetros & Filtros")
+    /* Cards com efeito de elevação e transição no mouse */
+    .ux-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 22px;
+        margin-bottom: 15px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(12px);
+    }
+    
+    .ux-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 12px 28px rgba(0, 230, 118, 0.15);
+        border-color: rgba(0, 230, 118, 0.4);
+    }
 
-# Regras Customizáveis
-with st.sidebar.expander("🛠️ Personalizar Regras de Indicadores", expanded=False):
-    pl_max_ideal = st.number_input("P/L Ideal Máximo", value=15.0)
-    pvp_max_ideal = st.number_input("P/VP Ideal Máximo", value=1.5)
-    roe_min_ideal = st.number_input("ROE Mínimo Ideal (%)", value=10.0)
-    margem_min_ideal = st.number_input("Margem Líquida Mínima (%)", value=10.0)
-    divida_max_ideal = st.number_input("Dívida Líq./EBITDA Máximo", value=2.5)
+    /* Métricas estilizadas */
+    .metric-title {
+        font-size: 0.85rem;
+        color: #A0AEC0;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .metric-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #FFFFFF;
+        margin-top: 5px;
+    }
+    
+    .metric-sub {
+        font-size: 0.8rem;
+        color: #00E676;
+        margin-top: 2px;
+    }
 
+    /* Badges / Veredito */
+    .badge-approved {
+        background: linear-gradient(135deg, #00E676, #00B0FF);
+        color: #000;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 700;
+        display: inline-block;
+    }
+
+    .badge-rejected {
+        background: linear-gradient(135deg, #FF1744, #FF5252);
+        color: #FFF;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 700;
+        display: inline-block;
+    }
+
+    /* Ajustes na sidebar */
+    .css-1d37Wk {
+        background-color: #0E1117;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# 3. Função Cacheada para Alta Performance
+@st.cache_data(ttl=3600)
 def buscar_dados_ativo(ticker_str):
     symbol = f"{ticker_str}.SA" if not ticker_str.endswith(".SA") else ticker_str
     stock = yf.Ticker(symbol)
@@ -43,112 +113,181 @@ def buscar_dados_ativo(ticker_str):
         "Dívida Líq./EBITDA": divida_ebitda, "Liquidez Corrente": liquidez
     }
 
-def avaliar_status(row):
-    if row['P/L'] <= 0 or row['P/L'] > pl_max_ideal * 1.5 or row['ROE (%)'] < 0 or row['Liquidez Corrente'] < 1.0:
-        return 'Crítico'
-    elif row['P/L'] <= pl_max_ideal and row['P/VP'] <= pvp_max_ideal and row['ROE (%)'] >= roe_min_ideal:
-        return 'Bom'
-    return 'Alerta'
+# 4. Cabeçalho Principal
+st.markdown("<h1>⚡ Terminal B3 <span style='color:#00E676;'>Analytics Pro</span></h1>", unsafe_allow_html=True)
+st.caption("Painel interativo de análise fundamentalista, valuation e projeção patrimonial em tempo real.")
 
-# --- NAVEGAÇÃO POR ABAS ---
+# 5. Sidebar de Parâmetros
+st.sidebar.markdown("### ⚙️ Parâmetros do Filtro")
+pl_max_ideal = st.sidebar.number_input("P/L Máximo Recomendado", value=15.0)
+pvp_max_ideal = st.sidebar.number_input("P/VP Máximo Recomendado", value=1.5)
+roe_min_ideal = st.sidebar.number_input("ROE Mínimo (%)", value=10.0)
+
+# 6. Abas Navegáveis com Ícones
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Análise Individual & Valuation", 
-    "⚔️ Comparador de Ações", 
-    "📈 Simulador Bola de Neve", 
-    "📥 Exportar Relatório"
+    "🎯 Valuation & Resumo", 
+    "⚔️ Comparador Side-by-Side", 
+    "🚀 Simulador Bola de Neve", 
+    "📥 Central de Downloads"
 ])
 
-# === ABA 1: ANÁLISE INDIVIDUAL ===
+# === ABA 1: VALUATION & RESUMO ===
 with tab1:
-    ticker_ind = st.text_input("Digite o Ticker da Ação (ex: PETR4, VALE3, ITUB4):", value="PETR4").upper().strip()
+    c1, c2 = st.columns([1, 3])
+    with c1:
+        ticker_ind = st.text_input("🔍 Buscar Ativo:", value="PETR4").upper().strip()
+    
     if ticker_ind:
         try:
             dados = buscar_dados_ativo(ticker_ind)
-            
-            # Valuation
-            col1, col2, col3 = st.columns(3)
             p_graham = round(np.sqrt(22.5 * dados['LPA'] * dados['VPA']), 2) if dados['LPA'] > 0 and dados['VPA'] > 0 else "N/A"
             p_bazin = round(dados['DPA'] / 0.06, 2) if dados['DPA'] > 0 else "N/A"
             
-            col1.metric("Preço Justo (Graham)", f"R$ {p_graham}" if p_graham != "N/A" else "N/A")
-            col2.metric("Preço Teto (Bazin 6%)", f"R$ {p_bazin}" if p_bazin != "N/A" else "N/A")
-            col3.metric("Preço de Mercado Atual", f"R$ {dados['Preço']}")
+            # Cards Interativos com Hover Effect
+            st.markdown("### 📊 Modelos de Valuation")
+            col_a, col_b, col_c = st.columns(3)
             
-            # Tabela de Indicadores
-            df_ind = pd.DataFrame([dados]).T.reset_index()
-            df_ind.columns = ["Indicador", "Valor"]
-            st.subheader(f"Indicadores Fundamentalistas - {ticker_ind}")
-            st.dataframe(df_ind, use_container_width=True)
-        except Exception as e:
-            st.error(f"Erro ao buscar dados de {ticker_ind}: {e}")
+            with col_a:
+                st.markdown(f"""
+                <div class="ux-card">
+                    <div class="metric-title">📐 Preço Justo Graham</div>
+                    <div class="metric-value">R$ {p_graham}</div>
+                    <div class="metric-sub">Baseado em Lucro e Patrimônio</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_b:
+                st.markdown(f"""
+                <div class="ux-card">
+                    <div class="metric-title">🛡️ Preço Teto Bazin (6%)</div>
+                    <div class="metric-value">R$ {p_bazin}</div>
+                    <div class="metric-sub">Baseado nos Proventos Pagos</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-# === ABA 2: COMPARADOR DE AÇÕES ===
+            with col_c:
+                st.markdown(f"""
+                <div class="ux-card">
+                    <div class="metric-title">🏷️ Cotação Atual</div>
+                    <div class="metric-value" style="color: #00B0FF;">R$ {dados['Preço']}</div>
+                    <div class="metric-sub">Valor de Mercado B3</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Diagnostic Card
+            status = "APROVADO" if (dados['P/L'] <= pl_max_ideal and dados['ROE (%)'] >= roe_min_ideal) else "ATENÇÃO / REPROVADO"
+            badge_class = "badge-approved" if status == "APROVADO" else "badge-rejected"
+            
+            st.markdown(f"""
+            <div class="ux-card">
+                <span class="metric-title">Veredito do Filtro:</span>
+                <span class="{badge_class}">{status}</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Tabela de Indicadores Formatada
+            df_ind = pd.DataFrame([dados]).T.reset_index()
+            df_ind.columns = ["Indicador Fundamentalista", "Valor"]
+            st.dataframe(df_ind, use_container_width=True, hide_index=True)
+
+        except Exception as e:
+            st.error(f"Erro ao carregar dados do ativo: {e}")
+
+# === ABA 2: COMPARADOR ===
 with tab2:
-    st.subheader("⚔️ Comparação Direta Lado a Lado")
-    col_a, col_b = st.columns(2)
-    t1 = col_a.text_input("Ação 1:", value="PETR4").upper().strip()
-    t2 = col_b.text_input("Ação 2:", value="VALE3").upper().strip()
+    st.markdown("### ⚔️ Comparação Lado a Lado")
+    ca, cb = st.columns(2)
+    t1 = ca.text_input("Ação 1:", value="PETR4").upper().strip()
+    t2 = cb.text_input("Ação 2:", value="VALE3").upper().strip()
     
-    if st.button("Comparar Ações") or (t1 and t2):
+    if t1 and t2:
         try:
             d1, d2 = buscar_dados_ativo(t1), buscar_dados_ativo(t2)
             df_comp = pd.DataFrame([d1, d2]).set_index("Ticker").T
+            
             st.dataframe(df_comp, use_container_width=True)
+            
+            # Gráfico de Radar Interativo
+            categories = ['P/L', 'P/VP', 'ROE (%)', 'Margem Líq. (%)']
+            fig_radar = go.Figure()
+
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[d1['P/L'], d1['P/VP'], d1['ROE (%)'], d1['Margem Líq. (%)']],
+                theta=categories, fill='toself', name=t1
+            ))
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[d2['P/L'], d2['P/VP'], d2['ROE (%)'], d2['Margem Líq. (%)']],
+                theta=categories, fill='toself', name=t2
+            ))
+
+            fig_radar.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 40])),
+                showlegend=True, template="plotly_dark", height=400
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+            
         except Exception as e:
             st.error(f"Erro na comparação: {e}")
 
-# === ABA 3: SIMULADOR BOLA DE NEVE ===
+# === ABA 3: SIMULADOR ===
 with tab3:
-    st.subheader("📈 Projeção de Juros Compostos com Reinvestimento")
-    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-    ap_inicial = col_s1.number_input("Aporte Inicial (R$)", value=5000)
-    ap_mensal = col_s2.number_input("Aporte Mensal (R$)", value=500)
-    anos_sim = col_s3.slider("Anos de Investimento", 1, 30, 10)
-    dy_sim = col_s4.number_input("Dividend Yield Anual (%)", value=8.0)
+    st.markdown("### 📈 Projeção Patrimonial Interativa")
+    cs1, cs2, cs3, cs4 = st.columns(4)
+    ap_ini = cs1.number_input("Aporte Inicial (R$)", value=10000)
+    ap_men = cs2.number_input("Aporte Mensal (R$)", value=1000)
+    anos = cs3.slider("Período (Anos)", 1, 30, 15)
+    dy = cs4.number_input("Dividend Yield Esperado (% a.a.)", value=8.5)
     
-    meses = anos_sim * 12
-    taxa_dy_m = (1 + dy_sim/100)**(1/12) - 1
+    meses = anos * 12
+    taxa_m = (1 + dy/100)**(1/12) - 1
     
-    patrimonio = ap_inicial
-    total_inv = ap_inicial
-    hist = []
+    patrimonio, investido = ap_ini, ap_ini
+    historico = []
     
     for m in range(1, meses + 1):
-        div = patrimonio * taxa_dy_m
-        patrimonio += div + ap_mensal
-        total_inv += ap_mensal
+        div = patrimonio * taxa_m
+        patrimonio += div + ap_men
+        investido += ap_men
         if m % 12 == 0:
-            hist.append({"Ano": m//12, "Total Investido": round(total_inv, 2), "Patrimônio com Dividendos": round(patrimonio, 2)})
+            historico.append({
+                "Ano": m // 12,
+                "Investido": round(investido, 2),
+                "Com Reinvestimento": round(patrimonio, 2)
+            })
             
-    df_sim = pd.DataFrame(hist)
-    fig = px.line(df_sim, x="Ano", y=["Total Investido", "Patrimônio com Dividendos"], title="Evolução Patrimonial")
-    fig.update_layout(template="plotly_dark")
+    df_sim = pd.DataFrame(historico)
+    
+    # Gráfico de Área Interativo
+    fig = px.area(
+        df_sim, x="Ano", y=["Com Reinvestimento", "Investido"],
+        title="Efeito Bola de Neve no Patrimônio (Juros Compostos)",
+        color_discrete_sequence=["#00E676", "#00B0FF"]
+    )
+    fig.update_layout(template="plotly_dark", hovermode="x unified", height=420)
     st.plotly_chart(fig, use_container_width=True)
 
-# === ABA 4: EXPORTAÇÃO DE RELATÓRIO ===
+# === ABA 4: DOWNLOADS ===
 with tab4:
-    st.subheader("📥 Exportar Dados para Planilhas")
+    st.markdown("### 📥 Baixar Relatório Customizado")
     if 'df_ind' in locals():
-        # Exportar CSV
-        csv_buffer = df_ind.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📄 Baixar Relatório em CSV",
-            data=csv_buffer,
-            file_name=f"Relatorio_{ticker_ind}.csv",
-            mime="text/csv"
+        col_d1, col_d2 = st.columns(2)
+        
+        csv_data = df_ind.to_csv(index=False).encode('utf-8')
+        col_d1.download_button(
+            "📄 Download em CSV", data=csv_data,
+            file_name=f"Analise_{ticker_ind}.csv", mime="text/csv", use_container_width=True
         )
         
-        # Exportar Excel
         excel_buffer = io.BytesIO()
         with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            df_ind.to_excel(writer, sheet_name="Analise", index=False)
+            df_ind.to_excel(writer, sheet_name="Resumo", index=False)
         excel_buffer.seek(0)
         
-        st.download_button(
-            label="📊 Baixar Relatório em Excel (.xlsx)",
-            data=excel_buffer,
-            file_name=f"Relatorio_{ticker_ind}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        col_d2.download_button(
+            "📊 Download em Excel (.xlsx)", data=excel_buffer,
+            file_name=f"Analise_{ticker_ind}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
         )
     else:
-        st.info("Realize uma consulta na Aba 1 para gerar o relatório de download.")
+        st.info("Consulte uma ação na primeira aba para habilitar o download.")
