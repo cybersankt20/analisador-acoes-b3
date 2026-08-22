@@ -8,7 +8,7 @@ import io
 
 # 1. Configuração da Página
 st.set_page_config(
-    page_title="Terminal B3 Pro | Analytics",
+    page_title="CyberSankt20 B3 Pro | Analytics",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
