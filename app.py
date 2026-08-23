@@ -5,7 +5,10 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import io
+import database as db
 
+# Inicializa as tabelas do banco de dados
+db.init_db()
 # 1. Configuração da Página
 st.set_page_config(
     page_title="CyberSankt20 B3 Pro | Analytics",
@@ -98,7 +101,47 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+# --- GERENCIAMENTO DE SESSÃO ---
+if "logado" not in st.session_state:
+    st.session_state["logado"] = False
+if "usuario" not in st.session_state:
+    st.session_state["usuario"] = None
 
+# --- TELA DE LOGIN / CADASTRO ---
+if not st.session_state["logado"]:
+    st.title("⚡ Terminal B3 Pro — Acesso Restrito")
+    
+    tab_login, tab_cadastro = st.tabs(["🔒 Entrar", "📝 Criar Conta"])
+    
+    with tab_login:
+        with st.form("form_login"):
+            username = st.text_input("Usuário")
+            senha = st.text_input("Senha", type="password")
+            if st.form_submit_button("Entrar"):
+                user = db.autenticar_usuario(username, senha)
+                if user:
+                    st.session_state["logado"] = True
+                    st.session_state["usuario"] = user
+                    st.rerun()
+                else:
+                    st.error("Usuário ou senha incorretos.")
+                    
+    with tab_cadastro:
+        with st.form("form_cadastro"):
+            novo_user = st.text_input("Novo Usuário")
+            novo_email = st.text_input("E-mail")
+            nova_senha = st.text_input("Nova Senha", type="password")
+            if st.form_submit_button("Cadastrar"):
+                if novo_user and novo_email and nova_senha:
+                    sucesso, msg = db.criar_usuario(novo_user, novo_email, nova_senha)
+                    if sucesso:
+                        st.success(msg)
+                    else:
+                        st.warning(msg)
+                else:
+                    st.error("Preencha todos os campos.")
+                    
+    st.stop() # Bloqueia o carregamento do restante da página para usuários não autenticados
 # 3. Lista Pré-carregada para Autocompletar na B3
 ACOES_B3 = [
     "PETR4 - Petrobras PN",
@@ -218,8 +261,40 @@ def buscar_dados_ativo(ticker_str):
 st.markdown("<h1>⚡ Sankt20 B3 <span style='color:#00E676;'>Analytics Pro</span></h1>", unsafe_allow_html=True)
 
 # 6. Sidebar (Com Parâmetros Mínimos Recomendados pela Suno / Value Investing)
-st.sidebar.markdown("### ⚙️ Parâmetros do Filtro")
+# --- USUÁRIO E LOGOUT NA SIDEBAR ---
+st.sidebar.markdown(f"👤 **Usuário:** {st.session_state['usuario']['username']}")
 
+if st.sidebar.button("🚪 Sair (Logout)"):
+    st.session_state["logado"] = False
+    st.session_state["usuario"] = None
+    st.rerun()
+
+with st.sidebar.expander("🕒 Histórico de Pesquisas"):
+    historico = db.obter_historico_usuario(st.session_state['usuario']['id'])
+    if historico:
+        for ticker, data in historico:
+            st.caption(f"📌 **{ticker}** em {data[:16]}")
+    else:
+        st.caption("Nenhum histórico encontrado.")
+
+# --- COLE AQUI O BLOCO DOS FAVORITOS ---
+with st.sidebar.expander("⭐ Minhas Ações Favoritas"):
+    favs = db.listar_favoritos(st.session_state['usuario']['id'])
+    if favs:
+        for fav_ticker, data in favs:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.caption(f"📌 **{fav_ticker}**")
+            with col2:
+                if st.button("❌", key=f"del_fav_{fav_ticker}"):
+                    db.remover_favorito(st.session_state['usuario']['id'], fav_ticker)
+                    st.rerun()
+    else:
+        st.caption("Nenhum favorito salvo.")
+
+st.sidebar.divider()
+
+st.sidebar.markdown("### ⚙️ Parâmetros do Filtro")
 pl_max_ideal = st.sidebar.number_input(
     "P/L Máximo Recomendado", value=15.0, 
     help="Valuation: Preço/Lucro ideal até 15x para evitar pagar caro pela empresa."
@@ -281,10 +356,28 @@ with tab1:
     if ticker_ind:
         try:
             dados = buscar_dados_ativo(ticker_ind)
-            
-            # Card Automático da Empresa
+        
+        # --- SALVA A PESQUISA NO BANCO DE DADOS ---
+            db.salvar_pesquisa(st.session_state["usuario"]["id"], ticker_ind)
+
+        # --- BOTÃO DE FAVORITAR O ATIVO ---
+            user_id = st.session_state["usuario"]["id"]
+            ja_fav = db.eh_favorito(user_id, ticker_ind)
+
+            if ja_fav:
+                if st.button("⭐ Remover dos Favoritos", key="btn_rem_fav"):
+                    db.remover_favorito(user_id, ticker_ind)
+                    st.toast(f"{ticker_ind} removido dos favoritos!", icon="🗑️")
+                    st.rerun()
+            else:
+                if st.button("☆ Adicionar aos Favoritos", key="btn_add_fav"):
+                    db.adicionar_favorito(user_id, ticker_ind)
+                    st.toast(f"{ticker_ind} adicionado aos favoritos!", icon="⭐")
+                    st.rerun()
+
+        # Card Automático da Empresa
             st.markdown(f"""
-            <div class="company-header">
+        <div class="company-header">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
                     <div>
                         <h2 style="margin:0; color:#FFFFFF;">{dados['Nome']} <span style="color:#00E676;">({dados['Ticker']})</span></h2>
