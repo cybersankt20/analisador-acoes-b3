@@ -111,7 +111,7 @@ if "usuario" not in st.session_state:
 if not st.session_state["logado"]:
     st.title("⚡ Terminal B3 Pro — Acesso Restrito")
     
-    tab_login, tab_cadastro = st.tabs(["🔒 Entrar", "📝 Criar Conta"])
+    tab_login, tab_cadastro, tab_reset = st.tabs(["🔒 Entrar", "📝 Criar Conta", "🔑 Esqueci a Senha"])
     
     with tab_login:
         with st.form("form_login"):
@@ -140,6 +140,24 @@ if not st.session_state["logado"]:
                         st.warning(msg)
                 else:
                     st.error("Preencha todos os campos.")
+    
+    with tab_reset:
+        with st.form("form_reset"):
+            st.subheader("Redefinir Senha")
+            usuario_reset = st.text_input("Usuário")
+            nova_senha = st.text_input("Nova Senha", type="password")
+            confirmar_senha = st.text_input("Confirme a Nova Senha", type="password")
+            
+            if st.form_submit_button("Alterar Senha"):
+                if not usuario_reset or not nova_senha:
+                    st.warning("Preencha todos os campos.")
+                elif nova_senha != confirmar_senha:
+                    st.error("As senhas não coincidem.")
+                else:
+                    if db.redefinir_senha(usuario_reset, nova_senha):
+                        st.success("Senha alterada com sucesso! Volte para a aba Entrar.")
+                    else:
+                        st.error("Usuário não encontrado.")                
                     
     st.stop() # Bloqueia o carregamento do restante da página para usuários não autenticados
 # 3. Lista Pré-carregada para Autocompletar na B3

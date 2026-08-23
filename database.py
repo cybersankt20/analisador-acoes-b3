@@ -201,3 +201,19 @@ def eh_favorito(user_id, ticker):
     resultado = cursor.fetchone()
     conn.close()
     return resultado is not None
+
+def redefinir_senha(usuario, nova_senha):
+    conn = sqlite3.connect('terminal_b3.db')
+    cursor = conn.cursor()
+    
+    # Se estiver usando bcrypt para criptografia:
+    # senha_hash = bcrypt.hashpw(nova_senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    # cursor.execute("UPDATE usuarios SET senha = ? WHERE usuario = ?", (senha_hash, usuario))
+    
+    # Se estiver salvando em texto simples ou SHA256:
+    cursor.execute("UPDATE usuarios SET senha = ? WHERE usuario = ?", (nova_senha, usuario))
+    
+    conn.commit()
+    sucesso = cursor.rowcount > 0
+    conn.close()
+    return sucesso
