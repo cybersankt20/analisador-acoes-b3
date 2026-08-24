@@ -193,8 +193,11 @@ ACOES_B3 = [
 # 4. Função de Busca e Tratamento dos Indicadores
 @st.cache_data(ttl=3600)
 def buscar_dados_ativo(ticker_str):
-    # Padroniza para maiúsculas e remove espaços (evita buscas duplicadas)
-    ticker_clean = ticker_str.strip().upper()
+    if not ticker_str:
+        return None
+
+    # Extrai apenas o código do ticker (ex: "PETR4 - Petrobras PN" -> "PETR4")
+    ticker_clean = ticker_str.strip().split()[0].split("-")[0].upper()
     symbol = f"{ticker_clean}.SA" if not ticker_clean.endswith(".SA") else ticker_clean
     stock = yf.Ticker(symbol)
     
@@ -213,7 +216,7 @@ def buscar_dados_ativo(ticker_str):
     preco = round(info.get('currentPrice') or info.get('regularMarketPrice') or 0.0, 2)
     lpa = round(info.get('trailingEps') or 0.0, 2)
     vpa = round(info.get('bookValue') or 0.0, 2)
-    
+
     # Tratamento de DPA (Dividendos Por Ação)
     dpa_raw = info.get('trailingAnnualDividendRate') or info.get('dividendRate') or 0.0
     if dpa_raw == 0 and info.get('dividendYield'):
@@ -221,14 +224,14 @@ def buscar_dados_ativo(ticker_str):
         dpa_raw = (dy_check / 100.0 * preco) if dy_check > 1.0 else (dy_check * preco)
     dpa = round(dpa_raw, 2)
 
-    # Cálculo Seguro do Dividend Yield em % (DPA / Preço)
+    # Dividend Yield %
     if preco > 0 and dpa > 0:
         dy = round((dpa / preco) * 100, 2)
     else:
         dy_raw = info.get('dividendYield') or 0.0
         dy = round(dy_raw if dy_raw > 1.0 else dy_raw * 100, 2)
 
-    # Indicadores Fundamentalista
+    # Indicadores Fundamentalistas
     pl = round(info.get('trailingPE') or 0.0, 2)
     pvp = round(info.get('priceToBook') or 0.0, 2)
     roe = round((info.get('returnOnEquity') or 0.0) * 100, 2)
@@ -261,28 +264,40 @@ def buscar_dados_ativo(ticker_str):
         cap_fmt = f"R$ {market_cap/1e6:.2f} Milhões"
     else:
         cap_fmt = f"R$ {market_cap:,.2f}"
-    
+
     return {
-        "Ticker": ticker_str,
+        "ticker": ticker_clean,
+        "Ticker": ticker_clean,
+        "nome": nome,
         "Nome": nome,
+        "setor": setor,
         "Setor": setor,
+        "industria": industria,
         "Indústria": industria,
-        "Preço": preco, 
-        "LPA": lpa, 
-        "VPA": vpa, 
+        "preco": preco,
+        "Preço": preco,
+        "lpa": lpa,
+        "LPA": lpa,
+        "vpa": vpa,
+        "VPA": vpa,
+        "dpa": dpa,
         "DPA": dpa,
-        "P/L": pl, 
-        "P/VP": pvp, 
-        "ROE (%)": roe, 
-        "Margem Líq. (%)": margem,
-        "Dívida Líq./EBITDA": divida_ebitda, 
-        "Liquidez Corrente": liquidez,
-        "Dividend Yield (%)": dy,
-        "Valor de Mercado": cap_fmt,
-        "Preço Justo Graham": p_graham_str,
-        "Margem Graham": margem_graham,
-        "Preço Teto Bazin": p_bazin_str,
-        "Margem Bazin": margem_bazin
+        "dy": dy,
+        "pl": pl,
+        "P/L": pl,
+        "pvp": pvp,
+        "P/VP": pvp,
+        "roe": roe,
+        "ROE (%)": roe,
+        "margem": margem,
+        "divida_ebitda": divida_ebitda,
+        "liquidez": liquidez,
+        "market_cap": market_cap,
+        "cap_fmt": cap_fmt,
+        "p_graham": p_graham_str,
+        "margem_graham": margem_graham,
+        "p_bazin": p_bazin_str,
+        "margem_bazin": margem_bazin
     }
 
 # 5. Cabeçalho Principal
