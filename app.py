@@ -6,7 +6,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 import io
 
-# 1. Configuração da Página
+# -----------------------------------------------------------------------------
+# 1. CONFIGURAÇÃO DA PÁGINA
+# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Terminal B3 Pro | Analytics",
     page_icon="⚡",
@@ -14,7 +16,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Injeção de CSS Customizado (Cores e Temas Fixos)
+# -----------------------------------------------------------------------------
+# 2. ESTILIZAÇÃO CSS CUSTOMIZADA
+# -----------------------------------------------------------------------------
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
@@ -23,7 +27,7 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
-    /* Cards com fundo escuro fixo para visibilidade */
+    /* Cards em Grid */
     .ux-card {
         background-color: #1A1D24 !important;
         border: 1px solid #2D3748 !important;
@@ -78,7 +82,6 @@ st.markdown("""
         color: #FFFFFF !important;
     }
 
-    /* Badges */
     .badge-approved {
         background: #00E676;
         color: #000000 !important;
@@ -96,368 +99,427 @@ st.markdown("""
         font-weight: 700;
         display: inline-block;
     }
+
+    /* Tabela Customizada */
+    .custom-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        background-color: #1A1D24;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #2D3748;
+    }
+    .custom-table th {
+        background-color: #2D3748;
+        color: #A0AEC0;
+        padding: 14px 18px;
+        text-align: left;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .custom-table td {
+        padding: 14px 18px;
+        border-bottom: 1px solid #2D3748;
+        color: #FFFFFF;
+        font-size: 0.95rem;
+    }
+    .custom-table tr:last-child td {
+        border-bottom: none;
+    }
+    .custom-table tr:hover {
+        background-color: #222732;
+    }
+
+    /* Tooltip Interativo */
+    .tooltip-icon {
+        position: relative;
+        display: inline-block;
+        cursor: pointer;
+        color: #00B0FF;
+        margin-left: 8px;
+        font-weight: bold;
+    }
+    .tooltip-icon .tooltip-text {
+        visibility: hidden;
+        width: 290px;
+        background-color: #2D3748;
+        color: #FFFFFF;
+        text-align: left;
+        border-radius: 8px;
+        padding: 10px 14px;
+        position: absolute;
+        z-index: 999;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+        font-size: 0.82rem;
+        font-weight: normal;
+        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.5);
+        border: 1px solid #00E676;
+        line-height: 1.4;
+    }
+    .tooltip-icon:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 3. Lista Pré-carregada para Autocompletar na B3
-ACOES_B3 = [
-    "PETR4 - Petrobras PN",
-    "VALE3 - Vale ON",
-    "ITUB4 - Itaú Unibanco PN",
-    "BBAS3 - Banco do Brasil ON",
-    "BBDC4 - Bradesco PN",
-    "WEGE3 - WEG ON",
-    "ABEV3 - Ambev ON",
-    "RENT3 - Localiza ON",
-    "ELET3 - Eletrobras ON",
-    "SUZB3 - Suzano ON",
-    "JBSS3 - JBS ON",
-    "LREN3 - Lojas Renner ON",
-    "PRIO3 - Prio ON",
-    "VBBR3 - Vibra Energia ON",
-    "EQTL3 - Equatorial ON",
-    "RADL3 - Raia Drogasil ON",
-    "B3SA3 - B3 ON",
-    "GGBR4 - Gerdau PN",
-    "CSAN3 - Cosan ON",
-    "CPLE6 - Copel PNB",
-    "TAEE11 - Taesa Unt",
-    "KLBN11 - Klabin Unt",
-    "CMIG4 - Cemig PN",
-    "EGIE3 - Engie Brasil ON",
-    "MGLU3 - Magazine Luiza ON",
-    "🔍 Outro Ticker (Digitar manualmente)"
-]
-
-# 4. Função de Busca e Tratamento dos Indicadores
-@st.cache_data(ttl=3600)
-def buscar_dados_ativo(ticker_str):
-    symbol = f"{ticker_str}.SA" if not ticker_str.endswith(".SA") else ticker_str
-    stock = yf.Ticker(symbol)
-    info = stock.info
-    
-    nome = info.get('shortName') or info.get('longName') or ticker_str
-    setor = info.get('sector') or "Setor Não Especificado"
-    industria = info.get('industry') or "Indústria Não Especificada"
-    
-    preco = round(info.get('currentPrice') or info.get('regularMarketPrice') or 0.0, 2)
-    lpa = round(info.get('trailingEps') or 0.0, 2)
-    vpa = round(info.get('bookValue') or 0.0, 2)
-    
-    # Tratamento de DPA (Dividendos Por Ação)
-    dpa_raw = info.get('trailingAnnualDividendRate') or info.get('dividendRate') or 0.0
-    if dpa_raw == 0 and info.get('dividendYield'):
-        dy_check = info.get('dividendYield')
-        dpa_raw = (dy_check / 100.0 * preco) if dy_check > 1.0 else (dy_check * preco)
-    dpa = round(dpa_raw, 2)
-
-    # Cálculo Seguro do Dividend Yield em % (DPA / Preço)
-    if preco > 0 and dpa > 0:
-        dy = round((dpa / preco) * 100, 2)
-    else:
-        dy_raw = info.get('dividendYield') or 0.0
-        dy = round(dy_raw if dy_raw > 1.0 else dy_raw * 100, 2)
-
-    pl = round(info.get('trailingPE') or 0.0, 2)
-    pvp = round(info.get('priceToBook') or 0.0, 2)
-    roe = round((info.get('returnOnEquity') or 0.0) * 100, 2)
-    margem = round((info.get('profitMargins') or 0.0) * 100, 2)
-    divida_ebitda = round(info.get('debtToEbitda') or 0.0, 2)
-    liquidez = round(info.get('currentRatio') or 0.0, 2)
-    market_cap = info.get('marketCap') or 0
-
-    # Valuation Graham
-    if lpa > 0 and vpa > 0:
-        p_graham_num = np.sqrt(22.5 * lpa * vpa)
-        p_graham_str = f"R$ {p_graham_num:.2f}"
-        margem_graham = f"{((p_graham_num - preco) / preco) * 100:+.1f}%"
-    else:
-        p_graham_str = "N/A (LPA/VPA ≤ 0)"
-        margem_graham = "-"
-
-    # Valuation Bazin (Teto 6%)
-    if dpa > 0:
-        p_bazin_num = dpa / 0.06
-        p_bazin_str = f"R$ {p_bazin_num:.2f}"
-        margem_bazin = f"{((p_bazin_num - preco) / preco) * 100:+.1f}%"
-    else:
-        p_bazin_str = "N/A (Sem Prov. Recentes)"
-        margem_bazin = "-"
-
-    if market_cap >= 1e9:
-        cap_fmt = f"R$ {market_cap/1e9:.2f} Bilhões"
-    elif market_cap >= 1e6:
-        cap_fmt = f"R$ {market_cap/1e6:.2f} Milhões"
-    else:
-        cap_fmt = f"R$ {market_cap:,.2f}"
-    
-    return {
-        "Ticker": ticker_str,
-        "Nome": nome,
-        "Setor": setor,
-        "Indústria": industria,
-        "Preço": preco, 
-        "LPA": lpa, 
-        "VPA": vpa, 
-        "DPA": dpa,
-        "P/L": pl, 
-        "P/VP": pvp, 
-        "ROE (%)": roe, 
-        "Margem Líq. (%)": margem,
-        "Dívida Líq./EBITDA": divida_ebitda, 
-        "Liquidez Corrente": liquidez,
-        "Dividend Yield (%)": dy,
-        "Valor de Mercado": cap_fmt,
-        "Preço Justo Graham": p_graham_str,
-        "Margem Graham": margem_graham,
-        "Preço Teto Bazin": p_bazin_str,
-        "Margem Bazin": margem_bazin
-    }
-
-# 5. Cabeçalho Principal
-st.markdown("<h1>⚡ Terminal B3 <span style='color:#00E676;'>Analytics Pro</span></h1>", unsafe_allow_html=True)
-
-# 6. Sidebar (Com Parâmetros Mínimos Recomendados pela Suno / Value Investing)
-st.sidebar.markdown("### ⚙️ Parâmetros do Filtro")
-
-pl_max_ideal = st.sidebar.number_input(
-    "P/L Máximo Recomendado", value=15.0, 
-    help="Valuation: Preço/Lucro ideal até 15x para evitar pagar caro pela empresa."
-)
-
-pvp_max_ideal = st.sidebar.number_input(
-    "P/VP Máximo Recomendado", value=1.5, 
-    help="Preço/Valor Patrimonial: Mínimo aceitável até 1.5x (Graham)."
-)
-
-roe_min_ideal = st.sidebar.number_input(
-    "ROE Mínimo (%)", value=10.0, 
-    help="Rentabilidade: Mede a eficiência do capital próprio. Suno recomenda mínimo de 10% a 15%."
-)
-
-dy_min_ideal = st.sidebar.number_input(
-    "Dividend Yield Mínimo (%)", value=6.0, 
-    help="Método Bazin/Suno: Proventos anuais mínimos de 6% sobre a cotação."
-)
-
-divida_max_ideal = st.sidebar.number_input(
-    "Dívida Líq. / EBITDA Máxima", value=2.5, 
-    help="Risco Financeiro: Máximo de 2.5x para garantir que a empresa aguente juros altos."
-)
-
-margem_min_ideal = st.sidebar.number_input(
-    "Margem Líquida Mínima (%)", value=10.0, 
-    help="Vantagem Competitiva: Garante rentabilidade contra concorrência e custos."
-)
-
-liquidez_min_ideal = st.sidebar.number_input(
-    "Liquidez Corrente Mínima", value=1.0, 
-    help="Solvência: Deve ser maior que 1.0 para ter mais caixa que dívidas de curto prazo."
-)
-
-# 7. Abas
-tab1, tab2, tab3, tab4 = st.tabs([
-    "🎯 Valuation & Resumo", 
-    "⚔️ Comparador Side-by-Side", 
-    "🚀 Simulador Bola de Neve", 
-    "📥 Central de Downloads"
+# Lista completa de ações B3
+ACOES_B3 = sorted([
+    "PETR4.SA", "VALE3.SA", "ITUB4.SA", "BBDC4.SA", "BBAS3.SA", "ABEV3.SA",
+    "WEGE3.SA", "RENT3.SA", "ELET3.SA", "SUZB3.SA", "BPAC11.SA", "EQTL3.SA",
+    "PRIO3.SA", "GGBR4.SA", "RADL3.SA", "RAIL3.SA", "SBSP3.SA", "VBBR3.SA",
+    "B3SA3.SA", "CSAN3.SA", "CPLE6.SA", "EGIE3.SA", "TAEE11.SA", "CMIG4.SA",
+    "KLBN11.SA", "VIVT3.SA", "TIMS3.SA", "HYPE3.SA", "TOTS3.SA", "FLRY3.SA",
+    "SANB11.SA", "ALUP11.SA", "TRPL4.SA", "BBSE3.SA", "PSSA3.SA", "CXSE3.SA",
+    "SAPR11.SA", "CSMG3.SA", "EMBR3.SA", "MULT3.SA", "UGPA3.SA", "LREN3.SA"
 ])
 
-# === ABA 1: VALUATION & RESUMO ===
-with tab1:
-    col_sel1, col_sel2 = st.columns([2, 1])
-    with col_sel1:
-        opcao_busca = st.selectbox(
-            "🔍 Buscar Ação na B3 (Digite o nome ou ticker):",
+# -----------------------------------------------------------------------------
+# 3. BUSCA DE DADOS FINANCEIROS CACHEADA
+# -----------------------------------------------------------------------------
+@st.cache_data(ttl=3600)
+def buscar_dados_ativo(ticker_str):
+    try:
+        ticker = yf.Ticker(ticker_str)
+        info = ticker.info
+        
+        preco_atual = info.get('currentPrice') or info.get('regularMarketPrice') or 0.0
+        lpa = info.get('trailingEps') or 0.0
+        vpa = info.get('bookValue') or 0.0
+        
+        # Cálculo de Preço Justo Graham
+        preco_graham = np.sqrt(22.5 * lpa * vpa) if (lpa > 0 and vpa > 0) else 0.0
+        
+        # Dividend Yield e Preço Teto Bazin
+        dy = (info.get('dividendYield') or 0.0)
+        dy_pct = dy * 100 if dy < 1.0 else dy
+        dpa = (dy_pct / 100) * preco_atual if dy_pct > 0 else 0.0
+        preco_bazin = dpa / 0.06 if dpa > 0 else 0.0
+        
+        # Indicadores Fundamentalistas
+        pl = info.get('trailingPE') or 0.0
+        pvp = info.get('priceToBook') or 0.0
+        roe = (info.get('returnOnEquity') or 0.0) * 100
+        margem_liquida = (info.get('profitMargins') or 0.0) * 100
+        liquidez_corrente = info.get('currentRatio') or 0.0
+        
+        divida_total = info.get('totalDebt') or 0.0
+        caixa = info.get('totalCash') or 0.0
+        divida_liquida = divida_total - caixa
+        ebitda = info.get('ebitda') or 1.0
+        divida_ebitda = divida_liquida / ebitda if ebitda > 0 else 0.0
+        
+        return {
+            "symbol": ticker_str.replace(".SA", ""),
+            "nome": info.get('longName', ticker_str),
+            "setor": info.get('sector', 'N/D'),
+            "preco": preco_atual,
+            "graham": preco_graham,
+            "bazin": preco_bazin,
+            "pl": pl,
+            "pvp": pvp,
+            "roe": roe,
+            "dy": dy_pct,
+            "margem_liquida": margem_liquida,
+            "divida_ebitda": divida_ebitda,
+            "liquidez_corrente": liquidez_corrente,
+            "lpa": lpa,
+            "vpa": vpa
+        }
+    except Exception:
+        return None
+
+# -----------------------------------------------------------------------------
+# 4. SIDEBAR - PARÂMETROS DO FILTRO FUNDAMENTALISTA
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("## ⚙️ Parâmetros do Filtro")
+st.sidebar.caption("Ajuste suas réguas de segurança:")
+
+pl_max = st.sidebar.number_input("P/L Máximo Recomendado", value=15.0, step=1.0)
+pvp_max = st.sidebar.number_input("P/VP Máximo Recomendado", value=1.5, step=0.1)
+roe_min = st.sidebar.number_input("ROE Mínimo (%)", value=10.0, step=1.0)
+dy_min = st.sidebar.number_input("Dividend Yield Mínimo (%)", value=6.0, step=0.5)
+divida_max = st.sidebar.number_input("Dívida Líq. / EBITDA Máxima", value=2.5, step=0.5)
+margem_min = st.sidebar.number_input("Margem Líquida Mínima (%)", value=10.0, step=1.0)
+liq_min = st.sidebar.number_input("Liquidez Corrente Mínima", value=1.0, step=0.1)
+
+# -----------------------------------------------------------------------------
+# 5. HEADER PRINCIPAL
+# -----------------------------------------------------------------------------
+st.title("⚡ Terminal B3 Pro — Valuation & Screener")
+st.markdown("Análise fundamentalista em tempo real, valuation automático (Graham e Bazin) e simulador de dividendos.")
+
+tabs = st.tabs(["📊 Valuation & Resumo", "⚔️ Comparador Lado a Lado", "📈 Simulador Bola de Neve", "📥 Central de Downloads"])
+
+# -----------------------------------------------------------------------------
+# TAB 1: VALUATION & RESUMO
+# -----------------------------------------------------------------------------
+with tabs[0]:
+    col_sel, _ = st.columns([1, 2])
+    with col_sel:
+        ticker_input = st.selectbox(
+            "Digite ou selecione uma ação da B3:",
             ACOES_B3,
             index=0
         )
-        
-        if opcao_busca == "🔍 Outro Ticker (Digitar manualmente)":
-            ticker_ind = st.text_input("Digite o Ticker exato (ex: BBSE3):", value="BBSE3").upper().strip()
-        else:
-            ticker_ind = opcao_busca.split(" - ")[0].strip()
+    
+    dados = buscar_dados_ativo(ticker_input)
+    
+    if dados:
+        # Verificação dos critérios do filtro
+        aprovado = (
+            dados['pl'] <= pl_max and
+            dados['pvp'] <= pvp_max and
+            dados['roe'] >= roe_min and
+            dados['dy'] >= dy_min and
+            dados['divida_ebitda'] <= divida_max and
+            dados['margem_liquida'] >= margem_min and
+            dados['liquidez_corrente'] >= liq_min
+        )
 
-    if ticker_ind:
-        try:
-            dados = buscar_dados_ativo(ticker_ind)
-            
-            # Card Automático da Empresa
-            st.markdown(f"""
-            <div class="company-header">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
-                    <div>
-                        <h2 style="margin:0; color:#FFFFFF;">{dados['Nome']} <span style="color:#00E676;">({dados['Ticker']})</span></h2>
-                        <p style="margin:5px 0 0 0; color:#A0AEC0;">🏭 {dados['Setor']} • {dados['Indústria']} | 💼 Val. Mercado: {dados['Valor de Mercado']}</p>
-                    </div>
-                    <div style="text-align:right;">
-                        <span style="font-size:0.85rem; color:#A0AEC0;">Cotação Atual</span>
-                        <div style="font-size:2rem; font-weight:800; color:#00B0FF;">R$ {dados['Preço']}</div>
-                    </div>
+        # Banner do Ativo
+        badge_html = f'<span class="badge-approved">AÇÃO APROVADA NOS SEUS FILTROS</span>' if aprovado else f'<span class="badge-rejected">ATENÇÃO: ALGUNS INDICADORES FORA DO LIMITE</span>'
+        
+        st.markdown(f"""
+        <div class="company-header">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 style="margin:0; font-weight:800; color:#FFFFFF;">{dados['nome']} ({dados['symbol']})</h2>
+                    <p style="margin:4px 0 0 0; color:#A0AEC0;">Setor: <b>{dados['setor']}</b></p>
                 </div>
+                <div>{badge_html}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.subheader("📊 Modelos de Valuation Automáticos")
+        
+        desc_graham = ((dados['graham'] - dados['preco']) / dados['preco']) * 100 if dados['preco'] > 0 else 0
+        desc_bazin = ((dados['bazin'] - dados['preco']) / dados['preco']) * 100 if dados['preco'] > 0 else 0
+        
+        c1, c2, c3 = st.columns(3)
+        
+        with c1:
+            st.markdown(f"""
+            <div class="ux-card">
+                <div class="metric-title">📐 Preço Justo Graham</div>
+                <div class="metric-value">R$ {dados['graham']:.2f}</div>
+                <div class="metric-sub">Margem/Desconto: <b>{desc_graham:+.1f}%</b></div>
             </div>
             """, unsafe_allow_html=True)
             
-            # Cards de Valuation
-            st.markdown("### 📊 Modelos de Valuation Automáticos")
-            col_a, col_b, col_c = st.columns(3)
+        with c2:
+            st.markdown(f"""
+            <div class="ux-card">
+                <div class="metric-title">🛡️ Preço Teto Bazin (6%)</div>
+                <div class="metric-value-blue">R$ {dados['bazin']:.2f}</div>
+                <div class="metric-sub">Margem/Desconto: <b>{desc_bazin:+.1f}%</b></div>
+            </div>
+            """, unsafe_allow_html=True)
             
-            with col_a:
-                st.markdown(f"""
-                <div class="ux-card">
-                    <div class="metric-title">📐 Preço Justo Graham</div>
-                    <div class="metric-value">{dados['Preço Justo Graham']}</div>
-                    <div class="metric-sub">Margem/Desconto: <b>{dados['Margem Graham']}</b></div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            with col_b:
-                st.markdown(f"""
-                <div class="ux-card">
-                    <div class="metric-title">🛡️ Preço Teto Bazin (6%)</div>
-                    <div class="metric-value-blue">{dados['Preço Teto Bazin']}</div>
-                    <div class="metric-sub">Margem/Desconto: <b>{dados['Margem Bazin']}</b></div>
-                </div>
-                """, unsafe_allow_html=True)
+        with c3:
+            veredicto_txt = "APROVADA" if aprovado else "ATENÇÃO"
+            veredicto_cor = "#00E676" if aprovado else "#FF5252"
+            st.markdown(f"""
+            <div class="ux-card">
+                <div class="metric-title">🎯 Veredito dos Filtros</div>
+                <div class="metric-value" style="color:{veredicto_cor} !important;">{veredicto_txt}</div>
+                <div class="metric-sub">Baseado nos Limites da Sidebar</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            with col_c:
-                # Verificação completa contra TODOS os filtros do investidor
-                passou_pl = dados['P/L'] <= pl_max_ideal
-                passou_pvp = dados['P/VP'] <= pvp_max_ideal
-                passou_roe = dados['ROE (%)'] >= roe_min_ideal
-                passou_dy = dados['Dividend Yield (%)'] >= dy_min_ideal
-                passou_divida = dados['Dívida Líq./EBITDA'] <= divida_max_ideal
-                passou_margem = dados['Margem Líq. (%)'] >= margem_min_ideal
-                passou_liquidez = dados['Liquidez Corrente'] >= liquidez_min_ideal
+        st.subheader("📜 Indicadores Fundamentalistas Detalhados")
+        
+        # Gerar linhas da tabela sem espaços de recuo nas linhas para evitar que o Markdown crie bloco de código
+        indicadores_info = [
+            ("💵 Preço Atual", f"R$ {dados['preco']:.2f}", "Cotação em tempo real negociada na B3."),
+            ("📐 Preço Justo (Graham)", f"R$ {dados['graham']:.2f}", "Fórmula: √(22.5 × LPA × VPA). Teto de preço pago por ações de valor."),
+            ("🛡️ Preço Teto (Bazin 6%)", f"R$ {dados['bazin']:.2f}", "Preço teto para garantir no mínimo 6% a.a. em dividendos."),
+            ("📊 P/L (Preço / Lucro)", f"{dados['pl']:.2f}", f"Anos para reaver investimento. Seu teto: {pl_max:.1f}"),
+            ("📘 P/VP (Preço / Valor Patrimonial)", f"{dados['pvp']:.2f}", f"Relação preço/patrimônio. Seu teto: {pvp_max:.1f}"),
+            ("💎 Dividend Yield (12M)", f"{dados['dy']:.2f}%", f"Rendimento anual em proventos. Seu piso: {dy_min:.1f}%"),
+            ("🚀 ROE (Retorno s/ Patrimônio)", f"{dados['roe']:.2f}%", f"Capacidade de gerar lucro com capital próprio. Seu piso: {roe_min:.1f}%"),
+            ("💸 Margem Líquida", f"{dados['margem_liquida']:.2f}%", f"Porcentagem da receita que vira lucro líquido. Seu piso: {margem_min:.1f}%"),
+            ("🧱 Dívida Líq. / EBITDA", f"{dados['divida_ebitda']:.2f}x", f"Alavancagem financeira. Seu teto: {divida_max:.1f}x"),
+            ("💧 Liquidez Corrente", f"{dados['liquidez_corrente']:.2f}", f"Capacidade de honrar compromissos no curto prazo. Seu piso: {liq_min:.1f}")
+        ]
 
-                aprovado_total = all([passou_pl, passou_pvp, passou_roe, passou_dy, passou_divida, passou_margem, passou_liquidez])
-                status = "APROVADO" if aprovado_total else "ATENÇÃO"
-                badge_class = "badge-approved" if aprovado_total else "badge-rejected"
-
-                st.markdown(f"""
-                <div class="ux-card">
-                    <div class="metric-title">🎯 Veredito dos Filtros</div>
-                    <div style="margin-top:10px;"><span class="{badge_class}">{status}</span></div>
-                    <div class="metric-sub">Baseado nos Limites da Sidebar</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # Tabela Estruturada
-            st.markdown("### 📋 Indicadores Fundamentalistas Detalhados")
-            
-            df_exibicao = pd.DataFrame([
-                {"Indicador": "💵 Preço Atual", "Valor": f"R$ {dados['Preço']}", "Descrição": "Cotação atualizada na B3"},
-                {"Indicador": "📐 Preço Justo (Graham)", "Valor": dados['Preço Justo Graham'], "Descrição": f"Fórmula: √(22.5 × LPA × VPA) | Margem: {dados['Margem Graham']}"},
-                {"Indicador": "🛡️ Preço Teto (Bazin 6%)", "Valor": dados['Preço Teto Bazin'], "Descrição": f"Fórmula: DPA / 0.06 | Margem: {dados['Margem Bazin']}"},
-                {"Indicador": "📊 P/L (Preço / Lucro)", "Valor": f"{dados['P/L']}x", "Descrição": f"Anos para reaver capital {'✅' if passou_pl else '⚠️'}"},
-                {"Indicador": "📖 P/VP (Preço / Valor Patrimonial)", "Valor": f"{dados['P/VP']}x", "Descrição": f"Preço relativo ao patrimônio {'✅' if passou_pvp else '⚠️'}"},
-                {"Indicador": "💰 Dividend Yield (DY)", "Valor": f"{dados['Dividend Yield (%)']}%", "Descrição": f"Rendimento anual em dividendos {'✅' if passou_dy else '⚠️'}"},
-                {"Indicador": "📈 ROE (Retorno sobre Patrimônio)", "Valor": f"{dados['ROE (%)']}%", "Descrição": f"Eficiência na geração de lucro {'✅' if passou_roe else '⚠️'}"},
-                {"Indicador": "💧 Margem Líquida", "Valor": f"{dados['Margem Líq. (%)']}%", "Descrição": f"Lucro líquido sobre receita {'✅' if passou_margem else '⚠️'}"},
-                {"Indicador": "🧮 LPA (Lucro Por Ação)", "Valor": f"R$ {dados['LPA']}", "Descrição": "Lucro líquido por cada ação"},
-                {"Indicador": "🏛️ VPA (Valor Patrimonial Por Ação)", "Valor": f"R$ {dados['VPA']}", "Descrição": "Patrimônio líquido por ação"},
-                {"Indicador": "🎁 DPA (Dividendos Por Ação)", "Valor": f"R$ {dados['DPA']}", "Descrição": "Proventos pagos por ação nos últimos 12 meses"},
-                {"Indicador": "⚖️ Dívida Líquida / EBITDA", "Valor": f"{dados['Dívida Líq./EBITDA']}x", "Descrição": f"Nível de endividamento da empresa {'✅' if passou_divida else '⚠️'}"},
-                {"Indicador": "🌊 Liquidez Corrente", "Valor": f"{dados['Liquidez Corrente']}x", "Descrição": f"Capacidade de honrar dívidas no curto prazo {'✅' if passou_liquidez else '⚠️'}"}
-            ])
-            
-            st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
-
-        except Exception as e:
-            st.error(f"Erro ao carregar dados do ativo: {e}")
-
-# === ABA 2: COMPARADOR ===
-with tab2:
-    st.markdown("### ⚔️ Comparação Lado a Lado")
-    ca, cb = st.columns(2)
-    t1 = ca.text_input("Ação 1:", value="PETR4").upper().strip()
-    t2 = cb.text_input("Ação 2:", value="VALE3").upper().strip()
-    
-    if t1 and t2:
-        try:
-            d1, d2 = buscar_dados_ativo(t1), buscar_dados_ativo(t2)
-            df_comp = pd.DataFrame([d1, d2]).set_index("Ticker").T
-            st.dataframe(df_comp, use_container_width=True)
-            
-            categories = ['P/L', 'P/VP', 'ROE (%)', 'Margem Líq. (%)']
-            fig_radar = go.Figure()
-
-            fig_radar.add_trace(go.Scatterpolar(
-                r=[d1['P/L'], d1['P/VP'], d1['ROE (%)'], d1['Margem Líq. (%)']],
-                theta=categories, fill='toself', name=t1
-            ))
-            fig_radar.add_trace(go.Scatterpolar(
-                r=[d2['P/L'], d2['P/VP'], d2['ROE (%)'], d2['Margem Líq. (%)']],
-                theta=categories, fill='toself', name=t2
-            ))
-
-            fig_radar.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0, 40])),
-                showlegend=True, template="plotly_dark", height=400
+        # Construção da tabela garantindo formatação HTML pura sem indentação de código Markdown
+        rows_list = []
+        for ind, val, exp in indicadores_info:
+            rows_list.append(
+                f'<tr><td style="font-weight:600;">{ind}</td>'
+                f'<td style="font-weight:700; color:#00E676;">{val}</td>'
+                f'<td><span class="tooltip-icon">❓<span class="tooltip-text">{exp}</span></span></td></tr>'
             )
-            st.plotly_chart(fig_radar, use_container_width=True)
-            
-        except Exception as e:
-            st.error(f"Erro na comparação: {e}")
+        
+        html_rows = "".join(rows_list)
+        
+        html_table = (
+            '<table class="custom-table">'
+            '<thead><tr>'
+            '<th>Indicador</th>'
+            '<th>Valor Apurado</th>'
+            '<th>Regra de Análise & Conceito (Passe o mouse no ❓)</th>'
+            '</tr></thead>'
+            f'<tbody>{html_rows}</tbody>'
+            '</table>'
+        )
 
-# === ABA 3: SIMULADOR ===
-with tab3:
-    st.markdown("### 📈 Projeção Patrimonial Interativa")
-    cs1, cs2, cs3, cs4 = st.columns(4)
-    ap_ini = cs1.number_input("Aporte Inicial (R$)", value=10000)
-    ap_men = cs2.number_input("Aporte Mensal (R$)", value=1000)
-    anos = cs3.slider("Período (Anos)", 1, 30, 15)
-    dy = cs4.number_input("Dividend Yield Esperado (% a.a.)", value=8.5)
+        # Exibição correta como HTML no Streamlit
+        st.markdown(html_table, unsafe_allow_html=True)
+
+    else:
+        st.error("Não foi possível carregar os dados deste ativo. Tente outro ticker.")
+
+# -----------------------------------------------------------------------------
+# TAB 2: COMPARADOR LADO A LADO
+# -----------------------------------------------------------------------------
+with tabs[1]:
+    st.subheader("⚔️ Comparação Fundamentalista de Ações")
+    c1, c2 = st.columns(2)
+    with c1:
+        at1 = st.selectbox("Escolha o primeiro ativo:", ACOES_B3, index=0, key="c_at1")
+    with c2:
+        at2 = st.selectbox("Escolha o segundo ativo:", ACOES_B3, index=1, key="c_at2")
+        
+    d1 = buscar_dados_ativo(at1)
+    d2 = buscar_dados_ativo(at2)
     
-    meses = anos * 12
-    taxa_m = (1 + dy/100)**(1/12) - 1
+    if d1 and d2:
+        comp_df = pd.DataFrame({
+            "Indicador": ["Preço (R$)", "P/L", "P/VP", "Dividend Yield (%)", "ROE (%)", "Margem Líq. (%)", "Dívida/EBITDA"],
+            d1['symbol']: [d1['preco'], d1['pl'], d1['pvp'], d1['dy'], d1['roe'], d1['margem_liquida'], d1['divida_ebitda']],
+            d2['symbol']: [d2['preco'], d2['pl'], d2['pvp'], d2['dy'], d2['roe'], d2['margem_liquida'], d2['divida_ebitda']]
+        })
+        
+        col_tb, col_chart = st.columns([1, 1])
+        
+        with col_tb:
+            st.markdown("#### 📊 Tabela Comparativa")
+            st.dataframe(comp_df.style.format(precision=2), use_container_width=True, hide_index=True)
+            
+        with col_chart:
+            st.markdown("#### 🕸️ Gráfico Radar de Qualidade")
+            categories = ['ROE', 'Dividend Yield', 'Margem Líquida', 'P/L Inverso']
+            
+            # Normalização simples para exibição no gráfico radar
+            v1 = [min(d1['roe'], 40), min(d1['dy'], 20), min(d1['margem_liquida'], 40), max(0, 20 - d1['pl'])]
+            v2 = [min(d2['roe'], 40), min(d2['dy'], 20), min(d2['margem_liquida'], 40), max(0, 20 - d2['pl'])]
+            
+            fig = go.Figure()
+            fig.add_trace(go.Scatterpolar(r=v1, theta=categories, fill='toself', name=d1['symbol'], line_color='#00E676'))
+            fig.add_trace(go.Scatterpolar(r=v2, theta=categories, fill='toself', name=d2['symbol'], line_color='#00B0FF'))
+            fig.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0, 40])),
+                showlegend=True,
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(color='#FFFFFF')
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# TAB 3: SIMULADOR BOLA DE NEVE
+# -----------------------------------------------------------------------------
+with tabs[2]:
+    st.subheader("📈 Simulador de Efeito Bola de Neve (Proventos Reinvestidos)")
     
-    patrimonio, investido = ap_ini, ap_ini
+    col_inputs, col_sim = st.columns([1, 2])
+    
+    with col_inputs:
+        aport_inicial = st.number_input("Aporte Inicial (R$):", value=10000.0, step=1000.0)
+        aporte_mensal = st.number_input("Aporte Mensal (R$):", value=1000.0, step=100.0)
+        dy_anual_sim = st.slider("Dividend Yield Anual Esperado (%)", 3.0, 15.0, 8.0)
+        anos = st.slider("Tempo de Investimento (Anos)", 1, 30, 10)
+        
+    months = anos * 12
+    rate_monthly = (1 + dy_anual_sim / 100) ** (1/12) - 1
+    
+    patrimonio = aport_inicial
     historico = []
     
-    for m in range(1, meses + 1):
-        div = patrimonio * taxa_m
-        patrimonio += div + ap_men
-        investido += ap_men
-        if m % 12 == 0:
-            historico.append({
-                "Ano": m // 12,
-                "Investido": round(investido, 2),
-                "Com Reinvestimento": round(patrimonio, 2)
-            })
-            
+    total_investido = aport_inicial
+    total_proventos = 0
+    
+    for m in range(1, months + 1):
+        provento_mes = patrimonio * rate_monthly
+        total_proventos += provento_mes
+        patrimonio += provento_mes + aporte_mensal
+        total_investido += aporte_mensal
+        
+        historico.append({
+            "Mês": m,
+            "Total Investido": total_investido,
+            "Patrimônio Acumulado": patrimonio,
+            "Provento Mensal ESTIMADO": provento_mes
+        })
+        
     df_sim = pd.DataFrame(historico)
     
-    fig = px.area(
-        df_sim, x="Ano", y=["Com Reinvestimento", "Investido"],
-        title="Efeito Bola de Neve no Patrimônio (Juros Compostos)",
-        color_discrete_sequence=["#00E676", "#00B0FF"]
-    )
-    fig.update_layout(template="plotly_dark", hovermode="x unified", height=420)
-    st.plotly_chart(fig, use_container_width=True)
-
-# === ABA 4: DOWNLOADS ===
-with tab4:
-    st.markdown("### 📥 Baixar Relatório Customizado")
-    if 'df_exibicao' in locals():
-        col_d1, col_d2 = st.columns(2)
+    with col_sim:
+        m1, m2 = st.columns(2)
+        m1.metric("Patrimônio Final Estimado", f"R$ {patrimonio:,.2f}")
+        m2.metric("Provento Mensal Estimado no Final", f"R$ {df_sim.iloc[-1]['Provento Mensal ESTIMADO']:,.2f}")
         
-        csv_data = df_exibicao.to_csv(index=False).encode('utf-8')
-        col_d1.download_button(
-            "📄 Download em CSV", data=csv_data,
-            file_name=f"Analise_{ticker_ind}.csv", mime="text/csv", use_container_width=True
+        fig_sim = px.area(
+            df_sim, 
+            x="Mês", 
+            y=["Total Investido", "Patrimônio Acumulado"],
+            title="Evolução do Patrimônio x Total Investido",
+            color_discrete_sequence=['#2D3748', '#00E676']
+        )
+        fig_sim.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#FFFFFF')
+        )
+        st.plotly_chart(fig_sim, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# TAB 4: CENTRAL DE DOWNLOADS
+# -----------------------------------------------------------------------------
+with tabs[3]:
+    st.subheader("📥 Exportação de Dados em Excel e CSV")
+    st.markdown("Baixe relatórios completos dos ativos analisados para utilizar no Excel ou Google Planilhas.")
+    
+    lista_relatorio = []
+    with st.spinner("Gerando base de dados para exportação..."):
+        for tk in ACOES_B3[:15]:
+            d = buscar_dados_ativo(tk)
+            if d:
+                lista_relatorio.append(d)
+                
+    df_exp = pd.DataFrame(lista_relatorio)
+    
+    col_d1, col_d2 = st.columns(2)
+    
+    with col_d1:
+        csv_data = df_exp.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📄 Baixar Relatório em CSV",
+            data=csv_data,
+            file_name="relatorio_acoes_b3.csv",
+            mime="text/csv",
+            use_container_width=True
         )
         
-        excel_buffer = io.BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-            df_exibicao.to_excel(writer, sheet_name="Resumo", index=False)
-        excel_buffer.seek(0)
+    with col_d2:
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df_exp.to_excel(writer, index=False, sheet_name="Ações B3")
+        buffer.seek(0)
         
-        col_d2.download_button(
-            "📊 Download em Excel (.xlsx)", data=excel_buffer,
-            file_name=f"Analise_{ticker_ind}.xlsx",
+        st.download_button(
+            label="📊 Baixar Relatório em Excel (.xlsx)",
+            data=buffer,
+            file_name="relatorio_acoes_b3.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
-    else:
-        st.info("Consulte uma ação na primeira aba para habilitar o download.")
