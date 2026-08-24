@@ -196,7 +196,7 @@ def buscar_dados_ativo(ticker_str):
     if not ticker_str:
         return None
 
-    # Extrai apenas o código do ticker (ex: "PETR4 - Petrobras PN" -> "PETR4")
+    # Extrai apenas o código do ticker (ex: "VALE3 - Vale ON" -> "VALE3")
     ticker_clean = ticker_str.strip().split()[0].split("-")[0].upper()
     symbol = f"{ticker_clean}.SA" if not ticker_clean.endswith(".SA") else ticker_clean
     stock = yf.Ticker(symbol)
@@ -258,6 +258,7 @@ def buscar_dados_ativo(ticker_str):
         p_bazin_str = "N/A (Sem Prov. Recentes)"
         margem_bazin = "-"
 
+    # Formatação do Valor de Mercado
     if market_cap >= 1e9:
         cap_fmt = f"R$ {market_cap/1e9:.2f} Bilhões"
     elif market_cap >= 1e6:
@@ -266,29 +267,19 @@ def buscar_dados_ativo(ticker_str):
         cap_fmt = f"R$ {market_cap:,.2f}"
 
     return {
+        # Chaves em minúsculo
         "ticker": ticker_clean,
-        "Ticker": ticker_clean,
         "nome": nome,
-        "Nome": nome,
         "setor": setor,
-        "Setor": setor,
         "industria": industria,
-        "Indústria": industria,
         "preco": preco,
-        "Preço": preco,
         "lpa": lpa,
-        "LPA": lpa,
         "vpa": vpa,
-        "VPA": vpa,
         "dpa": dpa,
-        "DPA": dpa,
         "dy": dy,
         "pl": pl,
-        "P/L": pl,
         "pvp": pvp,
-        "P/VP": pvp,
         "roe": roe,
-        "ROE (%)": roe,
         "margem": margem,
         "divida_ebitda": divida_ebitda,
         "liquidez": liquidez,
@@ -297,7 +288,30 @@ def buscar_dados_ativo(ticker_str):
         "p_graham": p_graham_str,
         "margem_graham": margem_graham,
         "p_bazin": p_bazin_str,
-        "margem_bazin": margem_bazin
+        "margem_bazin": margem_bazin,
+
+        # Chaves em formato de exibição para a interface do Streamlit
+        "Ticker": ticker_clean,
+        "Nome": nome,
+        "Setor": setor,
+        "Indústria": industria,
+        "Preço": preco,
+        "LPA": lpa,
+        "VPA": vpa,
+        "DPA": dpa,
+        "DY": dy,
+        "DY (%)": dy,
+        "P/L": pl,
+        "P/VP": pvp,
+        "ROE (%)": roe,
+        "Margem Líquida (%)": margem,
+        "Dívida Líquida / EBITDA": divida_ebitda,
+        "Liquidez Corrente": liquidez,
+        "Valor de Mercado": cap_fmt,
+        "P. Graham": p_graham_str,
+        "Margem Graham": margem_graham,
+        "P. Bazin": p_bazin_str,
+        "Margem Bazin": margem_bazin
     }
 
 # 5. Cabeçalho Principal
