@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Injeção de CSS Customizado (Com Estilização para Tooltips em Hover)
+# 2. Injeção de CSS Customizado (Cores e Temas Fixos)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap');
@@ -23,7 +23,7 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
-    /* Cards da Dashboard */
+    /* Cards com fundo escuro fixo para visibilidade */
     .ux-card {
         background-color: #1A1D24 !important;
         border: 1px solid #2D3748 !important;
@@ -96,73 +96,6 @@ st.markdown("""
         font-weight: 700;
         display: inline-block;
     }
-
-    /* Tabela Customizada com Tooltip Interativo */
-    .custom-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-        background-color: #1A1D24;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid #2D3748;
-    }
-    .custom-table th {
-        background-color: #2D3748;
-        color: #A0AEC0;
-        padding: 14px 18px;
-        text-align: left;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .custom-table td {
-        padding: 14px 18px;
-        border-bottom: 1px solid #2D3748;
-        color: #FFFFFF;
-        font-size: 0.95rem;
-    }
-    .custom-table tr:last-child td {
-        border-bottom: none;
-    }
-    .custom-table tr:hover {
-        background-color: #222732;
-    }
-
-    /* CSS do Balão Explicativo (Tooltip em Hover) */
-    .tooltip-icon {
-        position: relative;
-        display: inline-block;
-        cursor: pointer;
-        color: #00B0FF;
-        margin-left: 8px;
-        font-weight: bold;
-    }
-    .tooltip-icon .tooltip-text {
-        visibility: hidden;
-        width: 290px;
-        background-color: #2D3748;
-        color: #FFFFFF;
-        text-align: left;
-        border-radius: 8px;
-        padding: 10px 14px;
-        position: absolute;
-        z-index: 999;
-        bottom: 125%;
-        left: 50%;
-        transform: translateX(-50%);
-        opacity: 0;
-        transition: opacity 0.2s ease-in-out;
-        font-size: 0.82rem;
-        font-weight: normal;
-        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.5);
-        border: 1px solid #00E676;
-        line-height: 1.4;
-    }
-    .tooltip-icon:hover .tooltip-text {
-        visibility: visible;
-        opacity: 1;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -211,14 +144,14 @@ def buscar_dados_ativo(ticker_str):
     lpa = round(info.get('trailingEps') or 0.0, 2)
     vpa = round(info.get('bookValue') or 0.0, 2)
     
-    # DPA (Dividendos Por Ação)
+    # Tratamento de DPA (Dividendos Por Ação)
     dpa_raw = info.get('trailingAnnualDividendRate') or info.get('dividendRate') or 0.0
     if dpa_raw == 0 and info.get('dividendYield'):
         dy_check = info.get('dividendYield')
         dpa_raw = (dy_check / 100.0 * preco) if dy_check > 1.0 else (dy_check * preco)
     dpa = round(dpa_raw, 2)
 
-    # Dividend Yield em %
+    # Cálculo Seguro do Dividend Yield em % (DPA / Preço)
     if preco > 0 and dpa > 0:
         dy = round((dpa / preco) * 100, 2)
     else:
@@ -239,7 +172,7 @@ def buscar_dados_ativo(ticker_str):
         p_graham_str = f"R$ {p_graham_num:.2f}"
         margem_graham = f"{((p_graham_num - preco) / preco) * 100:+.1f}%"
     else:
-        p_graham_str = "N/A"
+        p_graham_str = "N/A (LPA/VPA ≤ 0)"
         margem_graham = "-"
 
     # Valuation Bazin (Teto 6%)
@@ -248,7 +181,7 @@ def buscar_dados_ativo(ticker_str):
         p_bazin_str = f"R$ {p_bazin_num:.2f}"
         margem_bazin = f"{((p_bazin_num - preco) / preco) * 100:+.1f}%"
     else:
-        p_bazin_str = "N/A"
+        p_bazin_str = "N/A (Sem Prov. Recentes)"
         margem_bazin = "-"
 
     if market_cap >= 1e9:
@@ -284,7 +217,7 @@ def buscar_dados_ativo(ticker_str):
 # 5. Cabeçalho Principal
 st.markdown("<h1>⚡ Terminal B3 <span style='color:#00E676;'>Analytics Pro</span></h1>", unsafe_allow_html=True)
 
-# 6. Sidebar (Parâmetros Mínimos do Investidor)
+# 6. Sidebar (Com Parâmetros Mínimos Recomendados pela Suno / Value Investing)
 st.sidebar.markdown("### ⚙️ Parâmetros do Filtro")
 
 pl_max_ideal = st.sidebar.number_input(
@@ -322,7 +255,7 @@ liquidez_min_ideal = st.sidebar.number_input(
     help="Solvência: Deve ser maior que 1.0 para ter mais caixa que dívidas de curto prazo."
 )
 
-# 7. Abas da Aplicação
+# 7. Abas
 tab1, tab2, tab3, tab4 = st.tabs([
     "🎯 Valuation & Resumo", 
     "⚔️ Comparador Side-by-Side", 
@@ -349,7 +282,7 @@ with tab1:
         try:
             dados = buscar_dados_ativo(ticker_ind)
             
-            # Header da Empresa
+            # Card Automático da Empresa
             st.markdown(f"""
             <div class="company-header">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
@@ -388,7 +321,7 @@ with tab1:
                 """, unsafe_allow_html=True)
 
             with col_c:
-                # Verificação dos Filtros
+                # Verificação completa contra TODOS os filtros do investidor
                 passou_pl = dados['P/L'] <= pl_max_ideal
                 passou_pvp = dados['P/VP'] <= pvp_max_ideal
                 passou_roe = dados['ROE (%)'] >= roe_min_ideal
@@ -409,99 +342,26 @@ with tab1:
                 </div>
                 """, unsafe_allow_html=True)
 
-            # Tabela Estruturada com Tooltips em Hover (Igual à Imagem 2)
+            # Tabela Estruturada
             st.markdown("### 📋 Indicadores Fundamentalistas Detalhados")
             
-            indicadores_info = [
-                {
-                    "Indicador": "💵 Preço Atual", "Valor": f"R$ {dados['Preço']}", "Status": "ℹ️", 
-                    "Explicacao": "Cotação em tempo real negociada na B3."
-                },
-                {
-                    "Indicador": "📐 Preço Justo (Graham)", "Valor": dados['Preço Justo Graham'], "Status": dados['Margem Graham'], 
-                    "Explicacao": "Fórmula: √(22.5 × LPA × VPA). Teto de preço pago por ações de valor."
-                },
-                {
-                    "Indicador": "🛡️ Preço Teto (Bazin 6%)", "Valor": dados['Preço Teto Bazin'], "Status": dados['Margem Bazin'], 
-                    "Explicacao": "Fórmula: DPA / 0.06. Cotação máxima para obter ao menos 6% a.a. em dividendos."
-                },
-                {
-                    "Indicador": "📊 P/L (Preço / Lucro)", "Valor": f"{dados['P/L']}x", "Status": "✅" if passou_pl else "⚠️", 
-                    "Explicacao": "Valuation: Indica quantos anos leva para o lucro pagar o preço da ação. Recomendado até 15x."
-                },
-                {
-                    "Indicador": "📖 P/VP (Preço / Valor Patrimonial)", "Valor": f"{dados['P/VP']}x", "Status": "✅" if passou_pvp else "⚠️", 
-                    "Explicacao": "Preço relativo ao Patrimônio Líquido. Graham recomenda comprar abaixo de 1.5x."
-                },
-                {
-                    "Indicador": "💰 Dividend Yield (DY)", "Valor": f"{dados['Dividend Yield (%)']}%", "Status": "✅" if passou_dy else "⚠️", 
-                    "Explicacao": "Método Bazin/Suno: Proventos anuais mínimos de 6.0% para garantir renda real."
-                },
-                {
-                    "Indicador": "📈 ROE (Retorno sobre Patrimônio)", "Valor": f"{dados['ROE (%)']}%", "Status": "✅" if passou_roe else "⚠️", 
-                    "Explicacao": "Rentabilidade: Mede a eficiência do capital próprio. Suno recomenda mínimo de 10% a 15%."
-                },
-                {
-                    "Indicador": "💧 Margem Líquida", "Valor": f"{dados['Margem Líq. (%)']}%", "Status": "✅" if passou_margem else "⚠️", 
-                    "Explicacao": "Vantagem Competitiva: Porcentagem de receita que vira lucro. Acima de 10% indica proteção contra concorrência."
-                },
-                {
-                    "Indicador": "🧮 LPA (Lucro Por Ação)", "Valor": f"R$ {dados['LPA']}", "Status": "ℹ️", 
-                    "Explicacao": "Lucro líquido total da empresa dividido pela quantidade total de ações."
-                },
-                {
-                    "Indicador": "🏛️ VPA (Valor Patrimonial Por Ação)", "Valor": f"R$ {dados['VPA']}", "Status": "ℹ️", 
-                    "Explicacao": "Patrimônio líquido contábil dividido pela quantidade de ações."
-                },
-                {
-                    "Indicador": "🎁 DPA (Dividendos Por Ação)", "Valor": f"R$ {dados['DPA']}", "Status": "ℹ️", 
-                    "Explicacao": "Total em dinheiro/proventos pagos por ação nos últimos 12 meses."
-                },
-                {
-                    "Indicador": "⚖️ Dívida Líquida / EBITDA", "Valor": f"{dados['Dívida Líq./EBITDA']}x", "Status": "✅" if passou_divida else "⚠️", 
-                    "Explicacao": "Risco Financeiro: Mede quantos anos de EBITDA pagam a dívida. Máximo recomendado: 2.5x."
-                },
-                {
-                    "Indicador": "🌊 Liquidez Corrente", "Valor": f"{dados['Liquidez Corrente']}x", "Status": "✅" if passou_liquidez else "⚠️", 
-                    "Explicacao": "Solvência: Deve ser maior que 1.0 para ter mais caixa que dívidas de curto prazo."
-                }
-            ]
-
-            # Construção do HTML da Tabela com Balão em Hover
-            html_rows = ""
-            for item in indicadores_info:
-                html_rows += f"""
-                <tr>
-                    <td style="font-weight:600;">{item['Indicador']}</td>
-                    <td style="font-weight:700; color:#00E676;">{item['Valor']}</td>
-                    <td>
-                        {item['Status']}
-                        <span class="tooltip-icon">❓
-                            <span class="tooltip-text">{item['Explicacao']}</span>
-                        </span>
-                    </td>
-                </tr>
-                """
-
-            html_table = f"""
-            <table class="custom-table">
-                <thead>
-                    <tr>
-                        <th>Indicador</th>
-                        <th>Valor Apurado</th>
-                        <th>Status e Regra de Análise (Passe o mouse no ❓)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {html_rows}
-                </tbody>
-            </table>
-            """
+            df_exibicao = pd.DataFrame([
+                {"Indicador": "💵 Preço Atual", "Valor": f"R$ {dados['Preço']}", "Descrição": "Cotação atualizada na B3"},
+                {"Indicador": "📐 Preço Justo (Graham)", "Valor": dados['Preço Justo Graham'], "Descrição": f"Fórmula: √(22.5 × LPA × VPA) | Margem: {dados['Margem Graham']}"},
+                {"Indicador": "🛡️ Preço Teto (Bazin 6%)", "Valor": dados['Preço Teto Bazin'], "Descrição": f"Fórmula: DPA / 0.06 | Margem: {dados['Margem Bazin']}"},
+                {"Indicador": "📊 P/L (Preço / Lucro)", "Valor": f"{dados['P/L']}x", "Descrição": f"Anos para reaver capital {'✅' if passou_pl else '⚠️'}"},
+                {"Indicador": "📖 P/VP (Preço / Valor Patrimonial)", "Valor": f"{dados['P/VP']}x", "Descrição": f"Preço relativo ao patrimônio {'✅' if passou_pvp else '⚠️'}"},
+                {"Indicador": "💰 Dividend Yield (DY)", "Valor": f"{dados['Dividend Yield (%)']}%", "Descrição": f"Rendimento anual em dividendos {'✅' if passou_dy else '⚠️'}"},
+                {"Indicador": "📈 ROE (Retorno sobre Patrimônio)", "Valor": f"{dados['ROE (%)']}%", "Descrição": f"Eficiência na geração de lucro {'✅' if passou_roe else '⚠️'}"},
+                {"Indicador": "💧 Margem Líquida", "Valor": f"{dados['Margem Líq. (%)']}%", "Descrição": f"Lucro líquido sobre receita {'✅' if passou_margem else '⚠️'}"},
+                {"Indicador": "🧮 LPA (Lucro Por Ação)", "Valor": f"R$ {dados['LPA']}", "Descrição": "Lucro líquido por cada ação"},
+                {"Indicador": "🏛️ VPA (Valor Patrimonial Por Ação)", "Valor": f"R$ {dados['VPA']}", "Descrição": "Patrimônio líquido por ação"},
+                {"Indicador": "🎁 DPA (Dividendos Por Ação)", "Valor": f"R$ {dados['DPA']}", "Descrição": "Proventos pagos por ação nos últimos 12 meses"},
+                {"Indicador": "⚖️ Dívida Líquida / EBITDA", "Valor": f"{dados['Dívida Líq./EBITDA']}x", "Descrição": f"Nível de endividamento da empresa {'✅' if passou_divida else '⚠️'}"},
+                {"Indicador": "🌊 Liquidez Corrente", "Valor": f"{dados['Liquidez Corrente']}x", "Descrição": f"Capacidade de honrar dívidas no curto prazo {'✅' if passou_liquidez else '⚠️'}"}
+            ])
             
-            st.markdown(html_table, unsafe_allow_html=True)
-
-            # DataFrame mantido em background para exportação na Aba 4
-            df_exibicao = pd.DataFrame(indicadores_info)[["Indicador", "Valor", "Explicacao"]]
+            st.dataframe(df_exibicao, use_container_width=True, hide_index=True)
 
         except Exception as e:
             st.error(f"Erro ao carregar dados do ativo: {e}")
