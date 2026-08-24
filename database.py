@@ -217,3 +217,23 @@ def redefinir_senha(usuario, nova_senha):
     sucesso = cursor.rowcount > 0
     conn.close()
     return sucesso
+
+import yfinance as yf
+import pandas as pd
+
+def obter_meses_dividendos(ticker):
+    ticker_b3 = f"{ticker.upper()}.SA" if not ticker.endswith(".SA") else ticker
+    try:
+        acao = yf.Ticker(ticker_b3)
+        divs = acao.dividends
+        
+        if divs.empty:
+            return set()
+        
+        # Filtra proventos dos últimos 24 meses
+        dois_anos_atras = pd.Timestamp.now(tz=divs.index.tz) - pd.DateOffset(years=2)
+        divs_recentes = divs[divs.index >= dois_anos_atras]
+        
+        return set(divs_recentes.index.month)
+    except Exception:
+        return set()

@@ -193,14 +193,23 @@ ACOES_B3 = [
 # 4. Função de Busca e Tratamento dos Indicadores
 @st.cache_data(ttl=3600)
 def buscar_dados_ativo(ticker_str):
-    symbol = f"{ticker_str}.SA" if not ticker_str.endswith(".SA") else ticker_str
+    # Padroniza para maiúsculas e remove espaços (evita buscas duplicadas)
+    ticker_clean = ticker_str.strip().upper()
+    symbol = f"{ticker_clean}.SA" if not ticker_clean.endswith(".SA") else ticker_clean
     stock = yf.Ticker(symbol)
-    info = stock.info
     
-    nome = info.get('shortName') or info.get('longName') or ticker_str
+    # Tratamento para evitar o erro de bloqueio (Rate Limit) do Yahoo Finance
+    try:
+        info = stock.info
+        if not info or ("shortName" not in info and "regularMarketPrice" not in info and "currentPrice" not in info):
+            return None
+    except Exception:
+        return None
+
+    nome = info.get('shortName') or info.get('longName') or ticker_clean
     setor = info.get('sector') or "Setor Não Especificado"
     industria = info.get('industry') or "Indústria Não Especificada"
-    
+
     preco = round(info.get('currentPrice') or info.get('regularMarketPrice') or 0.0, 2)
     lpa = round(info.get('trailingEps') or 0.0, 2)
     vpa = round(info.get('bookValue') or 0.0, 2)
@@ -219,6 +228,7 @@ def buscar_dados_ativo(ticker_str):
         dy_raw = info.get('dividendYield') or 0.0
         dy = round(dy_raw if dy_raw > 1.0 else dy_raw * 100, 2)
 
+    # Indicadores Fundamentalista
     pl = round(info.get('trailingPE') or 0.0, 2)
     pvp = round(info.get('priceToBook') or 0.0, 2)
     roe = round((info.get('returnOnEquity') or 0.0) * 100, 2)
@@ -572,3 +582,44 @@ with tab4:
         )
     else:
         st.info("Consulte uma ação na primeira aba para habilitar o download.")
+
+# --- RENDERIZADOR DE CARDS DO RADAR DE DIVIDENDOS ---
+def renderizar_card_dividendo(ticker, setor, nome, meses_pagos):
+    meses_nome = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+    
+    chips_html = ""
+    for i, mes in enumerate(meses_nome, start=1):
+        if i in meses_pagos:
+            chips_html += f'<div style="background-color: #d1fae5; color: #065f46; font-weight: bold; padding: 4px; border-radius: 6px; text-align: center; font-size: 11px;">💲 {mes}</div>'
+        else:
+            chips_html += f'<div style="background-color: #f3f4f6; color: #9ca3af; padding: 4px; border-radius: 6px; text-align: center; font-size: 11px;">{mes}</div>'
+
+    card_css = f"""
+    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <span style="font-size: 11px; background: #f3f4f6; color: #6b7280; padding: 2px 8px; border-radius: 12px;">{setor}</span>
+        <div style="margin-top: 8px; font-weight: bold; font-size: 18px; color: #111827;">{ticker}</div>
+        <div style="font-size: 13px; color: #6b7280; margin-bottom: 12px;">{nome}</div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+            {chips_html}
+        </div>
+    </div>
+    """
+    st.markdown(card_css, unsafe_allow_html=True)
+
+
+# --- SEÇÃO RADAR DE DIVIDENDOS ---
+st.divider()
+st.header("🎯 Radar de Dividendos Inteligente")
+st.write("Mapeamento do histórico de proventos das principais ações nos últimos 24 meses:")
+
+acoes_radar = [
+    {"ticker": "PETR4", "setor": "Petróleo e Gás", "nome": "Petrobras"},
+    {"ticker": "ITUB4", "setor": "Financeiro", "nome": "Banco Itaú Unibanco"},
+    {"ticker": "CMIG4", "setor": "Utilidade Pública", "nome": "Cemig"},
+]
+
+cols = st.columns(3)
+for i, acao in enumerate(acoes_radar):
+    with cols[i % 3]:
+        meses = db.obter_meses_dividendos(acao["ticker"])
+        renderizar_card_dividendo(acao["ticker"], acao["setor"], acao["nome"], meses)        
