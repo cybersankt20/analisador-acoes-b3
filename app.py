@@ -584,6 +584,21 @@ with tab4:
         st.info("Consulte uma ação na primeira aba para habilitar o download.")
 
 # --- RENDERIZADOR DE CARDS DO RADAR DE DIVIDENDOS ---
+@st.cache_data(ttl=86400)
+def obter_meses_dividendos(ticker):
+    ticker_b3 = f"{ticker.upper()}.SA" if not ticker.endswith(".SA") else ticker
+    try:
+        acao = yf.Ticker(ticker_b3)
+        divs = acao.dividends
+        if divs.empty:
+            return set()
+        dois_anos_atras = pd.Timestamp.now(tz=divs.index.tz) - pd.DateOffset(years=2)
+        divs_recentes = divs[divs.index >= dois_anos_atras]
+        return set(divs_recentes.index.month)
+    except Exception:
+        return set()
+
+
 def renderizar_card_dividendo(ticker, setor, nome, meses_pagos):
     meses_nome = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
     
